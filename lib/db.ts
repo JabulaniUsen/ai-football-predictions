@@ -134,7 +134,7 @@ export async function getHistoricalPredictions(
   dateTo: string,
   leagueId?: string,
   countryId?: string
-) {
+): Promise<(MatchPrediction & { predictionId: string })[]> {
   try {
     let query = supabase
       .from('predictions')
@@ -178,9 +178,10 @@ export async function getHistoricalPredictions(
     if (error) throw error;
 
     // Transform database results to MatchPrediction format
-    const predictions: MatchPrediction[] = (data || []).map((pred: any) => {
+    const predictions: (MatchPrediction & { predictionId: string })[] = (data || []).map((pred: any) => {
       const match = pred.matches;
       return {
+        predictionId: pred.id, // Include prediction ID for unique keys
         match: {
           match_id: match.match_id,
           country_id: match.country_id,

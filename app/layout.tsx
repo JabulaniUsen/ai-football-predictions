@@ -20,8 +20,8 @@ export const metadata: Metadata = {
   keywords: "football predictions, match predictions, football analysis, sports betting, football statistics",
   authors: [{ name: "Football Game Predictor" }],
   openGraph: {
-    title: "Football Game Predictor",
-    description: "AI-powered football match predictions based on head-to-head data, team statistics, and recent form",
+  title: "Football Game Predictor",
+  description: "AI-powered football match predictions based on head-to-head data, team statistics, and recent form",
     type: "website",
   },
 };

@@ -1,11 +1,10 @@
 'use client';
-
-import { useState, useRef, useEffect } from 'react';
 import { format, addDays, subDays } from 'date-fns';
 import { FaFutbol, FaRobot, FaHistory, FaCalendarAlt } from 'react-icons/fa';
 import DatePicker from './DatePicker';
 import { Button } from './ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import Link from 'next/link';
 
 interface NavbarProps {
   dateFrom: string;
@@ -16,6 +15,7 @@ interface NavbarProps {
   onViewModeChange: (mode: 'live' | 'historical') => void;
   today: string;
   maxDate: string;
+  showDatePicker?: boolean; // Option to hide date picker in navbar
 }
 
 export default function Navbar({
@@ -27,6 +27,7 @@ export default function Navbar({
   onViewModeChange,
   today,
   maxDate,
+  showDatePicker = true, // Default to true for backward compatibility
 }: NavbarProps) {
   const handleQuickDate = (days: number) => {
     // Only allow backdating in historical mode
@@ -69,99 +70,103 @@ export default function Navbar({
           </div>
 
           {/* Date Selection Bar - Similar to reference image */}
-          <div className="flex-1 w-full lg:w-auto flex justify-center">
-            <div className="flex items-center gap-0 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-1 max-w-2xl w-full">
-              {/* Select Date Button */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-l-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex-1 min-w-0">
-                    <FaCalendarAlt className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
-                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
-                      {format(new Date(dateFrom), 'MMM d, yyyy')}
-                    </span>
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-4" align="start">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <DatePicker
-                      label="From Date"
-                      value={dateFrom}
-                      onChange={onDateFromChange}
-                      min={minDate}
-                      max={maxDate}
-                    />
-                    <DatePicker
-                      label="To Date"
-                      value={dateTo}
-                      onChange={onDateToChange}
-                      min={dateFrom}
-                      max={maxDate}
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    {viewMode === 'historical' 
-                      ? 'Select past dates to view historical predictions'
-                      : 'Select future dates to view upcoming matches'}
-                  </p>
-                </PopoverContent>
-              </Popover>
+          {showDatePicker && (
+            <div className="flex-1 w-full lg:w-auto flex justify-center">
+              <div className="flex items-center gap-0 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-1 max-w-2xl w-full">
+                {/* Select Date Button */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-l-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex-1 min-w-0">
+                      <FaCalendarAlt className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                      <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                        {format(new Date(dateFrom), 'MMM d, yyyy')}
+                      </span>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-4" align="start">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <DatePicker
+                        label="From Date"
+                        value={dateFrom}
+                        onChange={onDateFromChange}
+                        min={minDate}
+                        max={maxDate}
+                      />
+                      <DatePicker
+                        label="To Date"
+                        value={dateTo}
+                        onChange={onDateToChange}
+                        min={dateFrom}
+                        max={maxDate}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      {viewMode === 'historical' 
+                        ? 'Select past dates to view historical predictions'
+                        : 'Select future dates to view upcoming matches'}
+                    </p>
+                  </PopoverContent>
+                </Popover>
 
-              {/* Quick Date Buttons */}
-              <button
-                onClick={() => handleQuickDate(0)}
-                className={`px-4 py-2 rounded-none text-sm font-medium transition-colors whitespace-nowrap ${
-                  isToday
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-transparent text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-              >
-                Today
-              </button>
-              <button
-                onClick={() => handleQuickDate(1)}
-                className={`px-4 py-2 rounded-none text-sm font-medium transition-colors whitespace-nowrap ${
-                  isTomorrow
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-transparent text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-              >
-                Tomorrow
-              </button>
-              {viewMode === 'historical' && (
+                {/* Quick Date Buttons */}
                 <button
-                  onClick={() => handleQuickDate(-1)}
-                  className={`px-4 py-2 rounded-r-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                    isYesterday
+                  onClick={() => handleQuickDate(0)}
+                  className={`px-4 py-2 rounded-none text-sm font-medium transition-colors whitespace-nowrap ${
+                    isToday
                       ? 'bg-blue-600 text-white'
                       : 'bg-transparent text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                 >
-                  Yesterday
+                  Today
                 </button>
-              )}
+                <button
+                  onClick={() => handleQuickDate(1)}
+                  className={`px-4 py-2 rounded-none text-sm font-medium transition-colors whitespace-nowrap ${
+                    isTomorrow
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-transparent text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  Tomorrow
+                </button>
+                {viewMode === 'historical' && (
+                  <button
+                    onClick={() => handleQuickDate(-1)}
+                    className={`px-4 py-2 rounded-r-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                      isYesterday
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-transparent text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    Yesterday
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* View Mode Toggle */}
+          {/* Navigation Links */}
           <div className="flex items-center gap-2">
-            <Button
-              variant={viewMode === 'live' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => onViewModeChange('live')}
-              className="flex items-center gap-2"
-            >
-              <FaFutbol className="text-xs" />
-              <span className="hidden sm:inline">Live</span>
-            </Button>
-            <Button
-              variant={viewMode === 'historical' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => onViewModeChange('historical')}
-              className="flex items-center gap-2"
-            >
-              <FaHistory className="text-xs" />
-              <span className="hidden sm:inline">History</span>
-            </Button>
+            <Link href="/">
+              <Button
+                variant={viewMode === 'live' ? 'default' : 'outline'}
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <FaFutbol className="text-xs" />
+                <span className="hidden sm:inline">Live</span>
+              </Button>
+            </Link>
+            <Link href="/history">
+              <Button
+                variant={viewMode === 'historical' ? 'default' : 'outline'}
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <FaHistory className="text-xs" />
+                <span className="hidden sm:inline">History</span>
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
