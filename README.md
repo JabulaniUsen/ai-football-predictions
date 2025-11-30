@@ -2,6 +2,27 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+### Environment Variables
+
+Create a `.env.local` file in the root directory with the following environment variables:
+
+```bash
+# Required: API Football API key for fetching match data
+NEXT_PUBLIC_API_FOOTBALL_KEY=your_api_football_key_here
+
+# Optional: Cerebras API key for AI-enhanced predictions
+# If not set, the app will use statistical models only
+CEREBRAS_API_KEY=your_cerebras_api_key_here
+# OR use NEXT_PUBLIC_CEREBRAS_API_KEY if you need client-side access
+
+# Optional: Cerebras model name (defaults to 'llama-3-70b-instruct')
+CEREBRAS_MODEL=llama-3-70b-instruct
+```
+
+**Note:** If the Cerebras API key is not configured, the app will still work but will use statistical models only (without AI enhancement). You'll see a warning in the console, but predictions will still be generated.
+
+### Running the Development Server
+
 First, run the development server:
 
 ```bash
