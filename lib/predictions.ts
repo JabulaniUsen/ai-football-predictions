@@ -314,91 +314,28 @@ export async function generatePrediction(match: Match): Promise<MatchPrediction>
     homeForm ? 1.0 : 0.5,
     awayForm ? 1.0 : 0.5,
   ];
-  const baseConfidence = (confidenceFactors.reduce((a, b) => a + b, 0) / confidenceFactors.length) * 100;
-
-  // Get AI-enhanced analysis via API route (works on both client and server)
-  let aiAnalysis = null;
-  try {
-    aiAnalysis = await getAIAnalysisViaAPI(match, h2hData, homeStats, awayStats, homeForm, awayForm);
-    if (!aiAnalysis) {
-      console.warn('AI analysis returned null, using statistical model only. This may be due to missing API key or API service issues.');
-    }
-  } catch (error) {
-    console.warn('AI analysis failed, using statistical model only:', error);
-    if (error instanceof Error && error.message.includes('API key')) {
-      console.warn('Please configure CEREBRAS_API_KEY or NEXT_PUBLIC_CEREBRAS_API_KEY environment variable to enable AI analysis.');
-    }
-  }
-
-  // Combine statistical model with AI analysis (70% AI, 30% statistical if AI available)
-  let finalHomeWinProb = homeWinProb;
-  let finalDrawProb = drawProb;
-  let finalAwayWinProb = awayWinProb;
-  let finalPredictedScore: { home: number; away: number } = {
-    home: mostLikelyScore.home,
-    away: mostLikelyScore.away,
-  };
-  let finalBttsYes = bttsYesProb;
-  let finalBttsNo = bttsNoProb;
-  let finalOver25 = over25Prob;
-  let finalUnder25 = under25Prob;
-  let finalConfidence = baseConfidence;
-
-  if (aiAnalysis) {
-    // Blend AI predictions with statistical model (70% AI, 30% statistical)
-    finalHomeWinProb = (aiAnalysis.winnerProbabilities.home * 0.7) + (homeWinProb * 0.3);
-    finalDrawProb = (aiAnalysis.winnerProbabilities.draw * 0.7) + (drawProb * 0.3);
-    finalAwayWinProb = (aiAnalysis.winnerProbabilities.away * 0.7) + (awayWinProb * 0.3);
-
-    // Normalize to ensure they sum to 100
-    const total = finalHomeWinProb + finalDrawProb + finalAwayWinProb;
-    if (total > 0) {
-      finalHomeWinProb = (finalHomeWinProb / total) * 100;
-      finalDrawProb = (finalDrawProb / total) * 100;
-      finalAwayWinProb = (finalAwayWinProb / total) * 100;
-    }
-
-    // Use AI predicted score (weighted with statistical)
-    finalPredictedScore = {
-      home: Math.round((aiAnalysis.predictedScore.home * 0.7) + (mostLikelyScore.home * 0.3)),
-      away: Math.round((aiAnalysis.predictedScore.away * 0.7) + (mostLikelyScore.away * 0.3)),
-    };
-
-    // Blend BTTS probabilities
-    finalBttsYes = (aiAnalysis.bothTeamsToScore.yes * 0.7) + (bttsYesProb * 0.3);
-    finalBttsNo = 100 - finalBttsYes;
-
-    // Blend Over/Under probabilities
-    finalOver25 = (aiAnalysis.overUnder.over25 * 0.7) + (over25Prob * 0.3);
-    finalUnder25 = 100 - finalOver25;
-
-    // Use AI confidence if higher, otherwise blend
-    finalConfidence = Math.max(
-      aiAnalysis.confidence,
-      (aiAnalysis.confidence * 0.6) + (baseConfidence * 0.4)
-    );
-  }
+  const confidence = (confidenceFactors.reduce((a, b) => a + b, 0) / confidenceFactors.length) * 100;
 
   return {
     match,
     winner: {
-      home: Math.round(finalHomeWinProb * 10) / 10,
-      draw: Math.round(finalDrawProb * 10) / 10,
-      away: Math.round(finalAwayWinProb * 10) / 10,
+      home: Math.round(homeWinProb * 10) / 10,
+      draw: Math.round(drawProb * 10) / 10,
+      away: Math.round(awayWinProb * 10) / 10,
     },
     predictedScore: {
-      home: finalPredictedScore.home,
-      away: finalPredictedScore.away,
+      home: mostLikelyScore.home,
+      away: mostLikelyScore.away,
     },
     bothTeamsToScore: {
-      yes: Math.round(finalBttsYes * 10) / 10,
-      no: Math.round(finalBttsNo * 10) / 10,
+      yes: Math.round(bttsYesProb * 10) / 10,
+      no: Math.round(bttsNoProb * 10) / 10,
     },
     overUnder: {
-      over25: Math.round(finalOver25 * 10) / 10,
-      under25: Math.round(finalUnder25 * 10) / 10,
+      over25: Math.round(over25Prob * 10) / 10,
+      under25: Math.round(under25Prob * 10) / 10,
     },
-    confidence: Math.round(finalConfidence * 10) / 10,
+    confidence: Math.round(confidence * 10) / 10,
     h2hSummary: h2hAnalysis.totalMatches > 0 ? {
       homeWins: h2hAnalysis.homeWins,
       draws: h2hAnalysis.draws,

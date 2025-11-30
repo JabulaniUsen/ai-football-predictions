@@ -30,6 +30,15 @@ export default function Home() {
   const [loadingPredictions, setLoadingPredictions] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [loadingMessage, setLoadingMessage] = useState('AI analysing games');
+
+  // Loading messages that cycle during prediction generation
+  const loadingMessages = useMemo(() => [
+    'AI analysing games',
+    'Thinking',
+    'Critical analysis',
+    'Checking past results',
+  ], []);
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const maxDate = format(addDays(new Date(), 30), 'yyyy-MM-dd');
@@ -102,12 +111,28 @@ export default function Home() {
     }
   };
 
+  // Cycle through loading messages
+  useEffect(() => {
+    if (!loadingPredictions) return;
+
+    let messageIndex = 0;
+    setLoadingMessage(loadingMessages[0]);
+
+    const interval = setInterval(() => {
+      messageIndex = (messageIndex + 1) % loadingMessages.length;
+      setLoadingMessage(loadingMessages[messageIndex]);
+    }, 1500); // Change message every 1.5 seconds
+
+    return () => clearInterval(interval);
+  }, [loadingPredictions, loadingMessages]);
+
   // Generate all predictions up to the limit
   const generateAllPredictions = useCallback(async () => {
     if (filteredFixtures.length === 0) return;
 
     setLoadingPredictions(true);
     setProgress({ current: 0, total: 0 });
+    setLoadingMessage(loadingMessages[0]);
 
     // Get fixtures to process (up to maxPredictions limit)
     const fixturesToProcess = filteredFixtures.slice(0, Math.min(maxPredictions, MAX_PREDICTIONS));
@@ -355,8 +380,13 @@ export default function Home() {
                   ))}
                 </div>
                 {loadingPredictions && !allPredictionsGenerated && (
-                  <div className="text-center py-4 text-gray-600 dark:text-gray-400">
-                    Generating predictions... ({predictions.size} / {filteredFixtures.length})
+                  <div className="text-center py-4">
+                    <p className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                      {loadingMessage}...
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      ({predictions.size} / {filteredFixtures.length})
+                    </p>
                   </div>
                 )}
                 {allPredictionsGenerated && (
@@ -369,10 +399,10 @@ export default function Home() {
               <div className="text-center py-12">
                 <div className="text-6xl mb-4">⚽</div>
                 <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Generating predictions...
+                  {loadingMessage}...
                 </h3>
                 <p className="text-gray-500 dark:text-gray-400">
-                  Please wait while we analyze the matches ({predictions.size} / {filteredFixtures.length})
+                  ({predictions.size} / {filteredFixtures.length})
                 </p>
               </div>
             ) : (
