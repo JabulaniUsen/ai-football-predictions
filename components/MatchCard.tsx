@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { MatchPrediction } from '@/types';
 import { format } from 'date-fns';
+import { FaRobot } from 'react-icons/fa';
 import {
   Dialog,
   DialogContent,
@@ -47,10 +48,14 @@ export default function MatchCard({ prediction }: MatchCardProps) {
       {/* Header */}
       <div className="mb-3 sm:mb-4">
         <div className="flex items-center justify-between mb-2 gap-2">
-          <span className="text-xs sm:text-sm font-semibold text-blue-600 dark:text-blue-400 uppercase truncate">
-            {match.league_name}
-          </span>
-          <div className={`px-2 sm:px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${getConfidenceBg(confidence)} ${getConfidenceColor(confidence)}`}>
+          <div className="flex items-center gap-1.5">
+            <FaRobot className="text-purple-600 dark:text-purple-400 text-xs" />
+            <span className="text-xs sm:text-sm font-semibold text-blue-600 dark:text-blue-400 uppercase truncate">
+              {match.league_name}
+            </span>
+          </div>
+          <div className={`px-2 sm:px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap flex items-center gap-1 ${getConfidenceBg(confidence)} ${getConfidenceColor(confidence)}`}>
+            <FaRobot className="text-xs" />
             {confidence}%
           </div>
         </div>
@@ -84,7 +89,10 @@ export default function MatchCard({ prediction }: MatchCardProps) {
       {/* Predicted Score */}
       <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 sm:p-4 mb-3 sm:mb-4">
         <div className="text-center">
-          <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Predicted Score</div>
+          <div className="text-xs text-gray-600 dark:text-gray-400 mb-1 flex items-center justify-center gap-1">
+            <FaRobot className="text-purple-600 dark:text-purple-400 text-xs" />
+            AI Predicted Score
+          </div>
           <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
             {predictedScore.home} - {predictedScore.away}
           </div>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { format, addDays } from 'date-fns';
-import { FaFutbol, FaSearch, FaCheckCircle } from 'react-icons/fa';
+import { FaFutbol, FaSearch, FaCheckCircle, FaRobot } from 'react-icons/fa';
 import { getFixtures, getUniqueLeagues, getUniqueCountries } from '@/lib/api';
 import { generatePrediction } from '@/lib/predictions';
 import { Match, MatchPrediction } from '@/types';
@@ -215,9 +215,12 @@ export default function Home() {
           <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2 flex items-center justify-center gap-3">
             <FaFutbol className="text-blue-600 dark:text-blue-400" />
             Football Game Predictor
+            <FaRobot className="text-purple-600 dark:text-purple-400" />
           </h1>
-          <p className="text-sm sm:text-base md:text-lg text-gray-600 dark:text-gray-400 px-2">
+          <p className="text-sm sm:text-base md:text-lg text-gray-600 dark:text-gray-400 px-2 flex items-center justify-center gap-2">
+            <FaRobot className="text-purple-500 dark:text-purple-400 text-xs" />
             AI-powered predictions based on head-to-head data, team statistics, and recent form
+            <FaRobot className="text-purple-500 dark:text-purple-400 text-xs" />
           </p>
         </div>
 
@@ -383,9 +386,13 @@ export default function Home() {
                 </div>
                 {loadingPredictions && !allPredictionsGenerated && (
                   <div className="text-center py-4">
-                    <p className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                      {loadingMessage}...
-                    </p>
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      <FaRobot className="text-purple-600 dark:text-purple-400 animate-pulse" />
+                      <p className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+                        {loadingMessage}...
+                      </p>
+                      <FaRobot className="text-purple-600 dark:text-purple-400 animate-pulse" />
+                    </div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       ({predictions.size} / {filteredFixtures.length})
                     </p>
@@ -394,15 +401,22 @@ export default function Home() {
                 {allPredictionsGenerated && (
                   <div className="text-center py-4 text-green-600 dark:text-green-400 font-semibold flex items-center justify-center gap-2">
                     <FaCheckCircle />
-                    <span>All {predictions.size} predictions generated successfully!</span>
+                    <FaRobot className="text-purple-500 dark:text-purple-400" />
+                    <span>All {predictions.size} AI predictions generated successfully!</span>
+                    <FaRobot className="text-purple-500 dark:text-purple-400" />
                   </div>
                 )}
               </>
             ) : loadingPredictions ? (
               <div className="text-center py-12">
-                <FaFutbol className="text-6xl mb-4 mx-auto text-blue-600 dark:text-blue-400" />
-                <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                <div className="flex items-center justify-center gap-3 mb-4">
+                  <FaFutbol className="text-5xl text-blue-600 dark:text-blue-400" />
+                  <FaRobot className="text-5xl text-purple-600 dark:text-purple-400 animate-pulse" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center justify-center gap-2">
+                  <FaRobot className="text-purple-500 dark:text-purple-400" />
                   {loadingMessage}...
+                  <FaRobot className="text-purple-500 dark:text-purple-400" />
                 </h3>
                 <p className="text-gray-500 dark:text-gray-400">
                   ({predictions.size} / {filteredFixtures.length})
@@ -410,12 +424,15 @@ export default function Home() {
               </div>
             ) : (
               <div className="text-center py-12">
-                <FaFutbol className="text-6xl mb-4 mx-auto text-blue-600 dark:text-blue-400" />
+                <div className="flex items-center justify-center gap-3 mb-4">
+                  <FaFutbol className="text-5xl text-blue-600 dark:text-blue-400" />
+                  <FaRobot className="text-5xl text-purple-600 dark:text-purple-400" />
+                </div>
                 <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   No predictions yet
                 </h3>
                 <p className="text-gray-500 dark:text-gray-400">
-                  Predictions will be generated automatically when matches are loaded
+                  AI predictions will be generated automatically when matches are loaded
                 </p>
               </div>
             )}
@@ -436,7 +453,10 @@ export default function Home() {
         {/* Empty State */}
         {!loadingFixtures && fixtures.length === 0 && !error && (
           <div className="text-center py-12">
-            <FaFutbol className="text-6xl mb-4 mx-auto text-blue-600 dark:text-blue-400" />
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <FaFutbol className="text-5xl text-blue-600 dark:text-blue-400" />
+              <FaRobot className="text-5xl text-purple-600 dark:text-purple-400" />
+            </div>
             <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
               No matches loaded
             </h3>
