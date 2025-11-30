@@ -1,7 +1,18 @@
 'use client';
 
+import { useState } from 'react';
 import { MatchPrediction } from '@/types';
 import { format } from 'date-fns';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Info } from 'lucide-react';
 
 interface MatchCardProps {
   prediction: MatchPrediction;
@@ -32,71 +43,73 @@ export default function MatchCard({ prediction }: MatchCardProps) {
   const isToday = format(matchDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-shadow">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-3 sm:p-4 md:p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-shadow">
       {/* Header */}
-      <div className="mb-4">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase">
+      <div className="mb-3 sm:mb-4">
+        <div className="flex items-center justify-between mb-2 gap-2">
+          <span className="text-xs sm:text-sm font-semibold text-blue-600 dark:text-blue-400 uppercase truncate">
             {match.league_name}
           </span>
-          <div className={`px-3 py-1 rounded-full text-xs font-semibold ${getConfidenceBg(confidence)} ${getConfidenceColor(confidence)}`}>
-            {confidence}% Confidence
+          <div className={`px-2 sm:px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${getConfidenceBg(confidence)} ${getConfidenceColor(confidence)}`}>
+            {confidence}%
           </div>
         </div>
-        <div className="text-sm text-gray-500 dark:text-gray-400">
-          {format(matchDate, 'EEEE, MMM d, yyyy')} at {format(matchDate, 'h:mm a')}
-          {isToday && <span className="ml-2 text-green-600 dark:text-green-400 font-semibold">• Today</span>}
+        <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+          <div className="sm:inline">{format(matchDate, 'EEEE, MMM d, yyyy')}</div>
+          <span className="hidden sm:inline"> at </span>
+          <div className="sm:inline">{format(matchDate, 'h:mm a')}</div>
+          {isToday && <span className="ml-1 sm:ml-2 text-green-600 dark:text-green-400 font-semibold">• Today</span>}
         </div>
       </div>
 
       {/* Teams */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3 flex-1">
+      <div className="mb-4 sm:mb-6">
+        <div className="flex items-center justify-between mb-3 sm:mb-4 gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
             {match.team_home_badge && (
-              <img src={match.team_home_badge} alt={match.match_hometeam_name} className="w-10 h-10" />
+              <img src={match.team_home_badge} alt={match.match_hometeam_name} className="w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0" />
             )}
-            <span className="font-semibold text-lg dark:text-white">{match.match_hometeam_name}</span>
+            <span className="font-semibold text-sm sm:text-base md:text-lg dark:text-white truncate">{match.match_hometeam_name}</span>
           </div>
-          <div className="text-2xl font-bold text-gray-400 dark:text-gray-500">vs</div>
-          <div className="flex items-center gap-3 flex-1 justify-end">
-            <span className="font-semibold text-lg dark:text-white text-right">{match.match_awayteam_name}</span>
+          <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-400 dark:text-gray-500 flex-shrink-0 px-1">vs</div>
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 justify-end min-w-0">
+            <span className="font-semibold text-sm sm:text-base md:text-lg dark:text-white text-right truncate">{match.match_awayteam_name}</span>
             {match.team_away_badge && (
-              <img src={match.team_away_badge} alt={match.match_awayteam_name} className="w-10 h-10" />
+              <img src={match.team_away_badge} alt={match.match_awayteam_name} className="w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0" />
             )}
           </div>
         </div>
       </div>
 
       {/* Predicted Score */}
-      <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg p-4 mb-4">
+      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 sm:p-4 mb-3 sm:mb-4">
         <div className="text-center">
           <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Predicted Score</div>
-          <div className="text-3xl font-bold text-gray-900 dark:text-white">
+          <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
             {predictedScore.home} - {predictedScore.away}
           </div>
         </div>
       </div>
 
       {/* Match Winner Probabilities */}
-      <div className="mb-4">
-        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Match Winner (1X2)</div>
-        <div className="grid grid-cols-3 gap-2">
-          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 text-center">
+      <div className="mb-3 sm:mb-4">
+        <div className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Match Winner (1X2)</div>
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2 sm:p-3 text-center">
             <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Home</div>
-            <div className={`text-lg font-bold ${getWinnerColor(winner.home)}`}>
+            <div className={`text-sm sm:text-base md:text-lg font-bold ${getWinnerColor(winner.home)}`}>
               {winner.home.toFixed(1)}%
             </div>
           </div>
-          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 text-center">
+          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2 sm:p-3 text-center">
             <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Draw</div>
-            <div className={`text-lg font-bold ${getWinnerColor(winner.draw)}`}>
+            <div className={`text-sm sm:text-base md:text-lg font-bold ${getWinnerColor(winner.draw)}`}>
               {winner.draw.toFixed(1)}%
             </div>
           </div>
-          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 text-center">
+          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2 sm:p-3 text-center">
             <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Away</div>
-            <div className={`text-lg font-bold ${getWinnerColor(winner.away)}`}>
+            <div className={`text-sm sm:text-base md:text-lg font-bold ${getWinnerColor(winner.away)}`}>
               {winner.away.toFixed(1)}%
             </div>
           </div>
@@ -104,33 +117,33 @@ export default function MatchCard({ prediction }: MatchCardProps) {
       </div>
 
       {/* Additional Predictions */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-3 sm:mb-4">
+        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2 sm:p-3">
           <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Both Teams to Score</div>
           <div className="flex justify-between items-center">
-            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Yes</span>
-            <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+            <span className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Yes</span>
+            <span className="text-xs sm:text-sm font-bold text-blue-600 dark:text-blue-400">
               {bothTeamsToScore.yes.toFixed(1)}%
             </span>
           </div>
           <div className="flex justify-between items-center mt-1">
-            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">No</span>
-            <span className="text-sm font-bold text-gray-600 dark:text-gray-400">
+            <span className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">No</span>
+            <span className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">
               {bothTeamsToScore.no.toFixed(1)}%
             </span>
           </div>
         </div>
-        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2 sm:p-3">
           <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Over/Under 2.5</div>
           <div className="flex justify-between items-center">
-            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Over</span>
-            <span className="text-sm font-bold text-green-600 dark:text-green-400">
+            <span className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Over</span>
+            <span className="text-xs sm:text-sm font-bold text-green-600 dark:text-green-400">
               {overUnder.over25.toFixed(1)}%
             </span>
           </div>
           <div className="flex justify-between items-center mt-1">
-            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Under</span>
-            <span className="text-sm font-bold text-gray-600 dark:text-gray-400">
+            <span className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Under</span>
+            <span className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400">
               {overUnder.under25.toFixed(1)}%
             </span>
           </div>
@@ -139,20 +152,20 @@ export default function MatchCard({ prediction }: MatchCardProps) {
 
       {/* H2H Summary */}
       {h2hSummary && (
-        <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
-          <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Head-to-Head</div>
-          <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-3 sm:pt-4 mt-3 sm:mt-4">
+          <div className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Head-to-Head</div>
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-2 text-center">
             <div>
               <div className="text-xs text-gray-600 dark:text-gray-400">Home Wins</div>
-              <div className="text-lg font-bold text-green-600 dark:text-green-400">{h2hSummary.homeWins}</div>
+              <div className="text-sm sm:text-base md:text-lg font-bold text-green-600 dark:text-green-400">{h2hSummary.homeWins}</div>
             </div>
             <div>
               <div className="text-xs text-gray-600 dark:text-gray-400">Draws</div>
-              <div className="text-lg font-bold text-gray-600 dark:text-gray-400">{h2hSummary.draws}</div>
+              <div className="text-sm sm:text-base md:text-lg font-bold text-gray-600 dark:text-gray-400">{h2hSummary.draws}</div>
             </div>
             <div>
               <div className="text-xs text-gray-600 dark:text-gray-400">Away Wins</div>
-              <div className="text-lg font-bold text-red-600 dark:text-red-400">{h2hSummary.awayWins}</div>
+              <div className="text-sm sm:text-base md:text-lg font-bold text-red-600 dark:text-red-400">{h2hSummary.awayWins}</div>
             </div>
           </div>
           <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
@@ -160,6 +173,108 @@ export default function MatchCard({ prediction }: MatchCardProps) {
           </div>
         </div>
       )}
+
+      {/* View Details Button */}
+      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="outline" className="w-full text-sm">
+              <Info className="w-4 h-4 mr-2" />
+              View Game Details
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Match Details</DialogTitle>
+              <DialogDescription>
+                Complete information about this match
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              {/* Match Info */}
+              <div>
+                <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-2">Match Information</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">League:</span>
+                    <span className="font-medium dark:text-white">{match.league_name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Country:</span>
+                    <span className="font-medium dark:text-white">{match.country_name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Date:</span>
+                    <span className="font-medium dark:text-white">{format(matchDate, 'EEEE, MMM d, yyyy')}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Time:</span>
+                    <span className="font-medium dark:text-white">{format(matchDate, 'h:mm a')}</span>
+                  </div>
+                  {match.match_round && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Round:</span>
+                      <span className="font-medium dark:text-white">{match.match_round}</span>
+                    </div>
+                  )}
+                  {match.match_stadium && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Stadium:</span>
+                      <span className="font-medium dark:text-white">{match.match_stadium}</span>
+                    </div>
+                  )}
+                  {match.match_referee && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Referee:</span>
+                      <span className="font-medium dark:text-white">{match.match_referee}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Status:</span>
+                    <span className="font-medium dark:text-white">{match.match_status}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Teams */}
+              <div>
+                <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-2">Teams</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    {match.team_home_badge && (
+                      <img src={match.team_home_badge} alt={match.match_hometeam_name} className="w-6 h-6" />
+                    )}
+                    <span className="font-medium dark:text-white">{match.match_hometeam_name}</span>
+                    <span className="ml-auto text-gray-600 dark:text-gray-400">(Home)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {match.team_away_badge && (
+                      <img src={match.team_away_badge} alt={match.match_awayteam_name} className="w-6 h-6" />
+                    )}
+                    <span className="font-medium dark:text-white">{match.match_awayteam_name}</span>
+                    <span className="ml-auto text-gray-600 dark:text-gray-400">(Away)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Prediction Summary */}
+              <div>
+                <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-2">Prediction Summary</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Confidence:</span>
+                    <span className={`font-medium ${getConfidenceColor(confidence)}`}>{confidence}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Predicted Score:</span>
+                    <span className="font-medium dark:text-white">{predictedScore.home} - {predictedScore.away}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }

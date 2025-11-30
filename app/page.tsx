@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { format, addDays } from 'date-fns';
+import { FaFutbol, FaSearch, FaCheckCircle } from 'react-icons/fa';
 import { getFixtures, getUniqueLeagues, getUniqueCountries } from '@/lib/api';
 import { generatePrediction } from '@/lib/predictions';
 import { Match, MatchPrediction } from '@/types';
@@ -207,20 +208,21 @@ export default function Home() {
     filteredFixtures.every((fixture) => predictions.has(fixture.match_id));
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-7xl">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-2">
-            ⚽ Football Game Predictor
+        <div className="text-center mb-4 sm:mb-8">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2 flex items-center justify-center gap-3">
+            <FaFutbol className="text-blue-600 dark:text-blue-400" />
+            Football Game Predictor
           </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-400">
+          <p className="text-sm sm:text-base md:text-lg text-gray-600 dark:text-gray-400 px-2">
             AI-powered predictions based on head-to-head data, team statistics, and recent form
           </p>
         </div>
 
         {/* Filters and Date Range Selector */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-3 sm:p-4 md:p-6 mb-4 sm:mb-8 border border-gray-200 dark:border-gray-700">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
             <DatePicker
               label="From Date"
@@ -277,23 +279,23 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-4 items-end">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-end">
             <button
               onClick={fetchFixtures}
               disabled={loadingFixtures || !dateFrom || !dateTo}
-              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105"
+              className="w-full sm:w-auto px-4 sm:px-6 py-2 text-sm sm:text-base bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105"
             >
               {loadingFixtures ? 'Loading Fixtures...' : 'Load Matches'}
             </button>
 
             {/* Quick Date Buttons */}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
               <button
                 onClick={() => {
                   setDateFrom(today);
                   setDateTo(format(addDays(new Date(), 1), 'yyyy-MM-dd'));
                 }}
-                className="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                className="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
                 Today
               </button>
@@ -302,7 +304,7 @@ export default function Home() {
                   setDateFrom(today);
                   setDateTo(format(addDays(new Date(), 3), 'yyyy-MM-dd'));
                 }}
-                className="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                className="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
                 Next 3 Days
               </button>
@@ -311,7 +313,7 @@ export default function Home() {
                   setDateFrom(today);
                   setDateTo(format(addDays(new Date(), 7), 'yyyy-MM-dd'));
                 }}
-                className="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                className="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
                 Next Week
               </button>
@@ -320,7 +322,7 @@ export default function Home() {
                   setDateFrom(today);
                   setDateTo(format(addDays(new Date(), 14), 'yyyy-MM-dd'));
                 }}
-                className="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                className="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
                 Next 2 Weeks
               </button>
@@ -340,7 +342,7 @@ export default function Home() {
 
         {/* Results Summary */}
         {fixtures.length > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 mb-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-3 sm:p-4 mb-4 sm:mb-6 border border-gray-200 dark:border-gray-700">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
@@ -374,7 +376,7 @@ export default function Home() {
           <div>
             {currentPagePredictions.length > 0 ? (
               <>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
                   {currentPagePredictions.map((prediction) => (
                     <MatchCard key={prediction.match.match_id} prediction={prediction} />
                   ))}
@@ -390,14 +392,15 @@ export default function Home() {
                   </div>
                 )}
                 {allPredictionsGenerated && (
-                  <div className="text-center py-4 text-green-600 dark:text-green-400 font-semibold">
-                    ✓ All {predictions.size} predictions generated successfully!
+                  <div className="text-center py-4 text-green-600 dark:text-green-400 font-semibold flex items-center justify-center gap-2">
+                    <FaCheckCircle />
+                    <span>All {predictions.size} predictions generated successfully!</span>
                   </div>
                 )}
               </>
             ) : loadingPredictions ? (
               <div className="text-center py-12">
-                <div className="text-6xl mb-4">⚽</div>
+                <FaFutbol className="text-6xl mb-4 mx-auto text-blue-600 dark:text-blue-400" />
                 <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   {loadingMessage}...
                 </h3>
@@ -407,7 +410,7 @@ export default function Home() {
               </div>
             ) : (
               <div className="text-center py-12">
-                <div className="text-6xl mb-4">⚽</div>
+                <FaFutbol className="text-6xl mb-4 mx-auto text-blue-600 dark:text-blue-400" />
                 <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   No predictions yet
                 </h3>
@@ -433,7 +436,7 @@ export default function Home() {
         {/* Empty State */}
         {!loadingFixtures && fixtures.length === 0 && !error && (
           <div className="text-center py-12">
-            <div className="text-6xl mb-4">⚽</div>
+            <FaFutbol className="text-6xl mb-4 mx-auto text-blue-600 dark:text-blue-400" />
             <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
               No matches loaded
             </h3>
@@ -446,7 +449,7 @@ export default function Home() {
         {/* No matches after filtering */}
         {!loadingFixtures && fixtures.length > 0 && filteredFixtures.length === 0 && (
           <div className="text-center py-12">
-            <div className="text-6xl mb-4">🔍</div>
+            <FaSearch className="text-6xl mb-4 mx-auto text-gray-400 dark:text-gray-500" />
             <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
               No matches match your filters
             </h3>
@@ -456,6 +459,23 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* Footer */}
+      <footer className="mt-auto py-6 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800">
+        <div className="container mx-auto px-3 sm:px-4 max-w-7xl">
+          <div className="text-center text-sm text-gray-600 dark:text-gray-400">
+            Built by{' '}
+            <a
+              href="https://jabulaniusen.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors"
+            >
+              Jabulani Usen
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -1,20 +1,29 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Roboto } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-sans",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const roboto = Roboto({
+  variable: "--font-mono",
   subsets: ["latin"],
+  weight: ["400", "500", "700"],
 });
 
 export const metadata: Metadata = {
-  title: "Football Game Predictor",
-  description: "AI-powered football match predictions based on head-to-head data, team statistics, and recent form",
+  title: "Football Game Predictor | AI-Powered Match Predictions",
+  description: "Get accurate football match predictions powered by advanced statistical analysis. Analyze head-to-head records, team form, and performance data to make informed predictions.",
+  keywords: "football predictions, match predictions, football analysis, sports betting, football statistics",
+  authors: [{ name: "Football Game Predictor" }],
+  openGraph: {
+    title: "Football Game Predictor",
+    description: "AI-powered football match predictions based on head-to-head data, team statistics, and recent form",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
@@ -25,7 +34,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${inter.variable} ${roboto.variable} antialiased font-sans`}
       >
         {children}
       </body>
