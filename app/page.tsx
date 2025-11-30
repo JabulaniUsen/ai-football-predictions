@@ -5,11 +5,13 @@ import { format, addDays } from 'date-fns';
 import { FaFutbol, FaSearch, FaCheckCircle, FaRobot } from 'react-icons/fa';
 import { getFixtures, getUniqueLeagues, getUniqueCountries } from '@/lib/api';
 import { generatePrediction } from '@/lib/predictions';
+import { saveMatchAndPrediction, getHistoricalPredictions } from '@/lib/db';
 import { Match, MatchPrediction } from '@/types';
 import DatePicker from '@/components/DatePicker';
 import MatchCard from '@/components/MatchCard';
 import FilterSelect from '@/components/FilterSelect';
 import Pagination from '@/components/Pagination';
+import Navbar from '@/components/Navbar';
 import { Input } from '@/components/ui/input';
 
 const ITEMS_PER_PAGE = 10;
@@ -32,6 +34,9 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [loadingMessage, setLoadingMessage] = useState('AI analysing games');
+  const [viewMode, setViewMode] = useState<'live' | 'historical'>('live');
+  const [loadingHistorical, setLoadingHistorical] = useState(false);
+  const [historicalPredictions, setHistoricalPredictions] = useState<MatchPrediction[]>([]);
 
   // Loading messages that cycle during prediction generation
   const loadingMessages = useMemo(() => [
@@ -162,6 +167,15 @@ export default function Home() {
 
             try {
               const prediction = await generatePrediction(fixture);
+              
+              // Save to database
+              try {
+                await saveMatchAndPrediction(prediction);
+              } catch (dbError) {
+                console.warn('Failed to save prediction to database:', dbError);
+                // Continue even if database save fails
+              }
+              
               setPredictions((current) => {
                 const updated = new Map(current);
                 updated.set(fixture.match_id, prediction);
@@ -207,8 +221,64 @@ export default function Home() {
   const allPredictionsGenerated = filteredFixtures.length > 0 && 
     filteredFixtures.every((fixture) => predictions.has(fixture.match_id));
 
+  // Load historical predictions
+  const loadHistoricalPredictions = useCallback(async () => {
+    if (!dateFrom || !dateTo) return;
+
+    setLoadingHistorical(true);
+    setError(null);
+
+    try {
+      const historical = await getHistoricalPredictions(
+        dateFrom,
+        dateTo,
+        selectedLeague || undefined,
+        selectedCountry || undefined
+      );
+      setHistoricalPredictions(historical);
+    } catch (err) {
+      console.error('Error loading historical predictions:', err);
+      setError('Failed to load historical predictions');
+    } finally {
+      setLoadingHistorical(false);
+    }
+  }, [dateFrom, dateTo, selectedLeague, selectedCountry]);
+
+  // Load historical predictions when view mode changes
+  useEffect(() => {
+    if (viewMode === 'historical') {
+      loadHistoricalPredictions();
+    } else {
+      setHistoricalPredictions([]);
+      // Reset to today when switching to live mode if date is in the past
+      if (dateFrom < today) {
+        setDateFrom(today);
+        setDateTo(format(addDays(new Date(), 7), 'yyyy-MM-dd'));
+      }
+    }
+  }, [viewMode, loadHistoricalPredictions, dateFrom, today]);
+
+  // Reload historical predictions when dates change in historical mode
+  useEffect(() => {
+    if (viewMode === 'historical') {
+      loadHistoricalPredictions();
+    }
+  }, [dateFrom, dateTo, viewMode, selectedLeague, selectedCountry, loadHistoricalPredictions]);
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+      {/* Navbar */}
+      <Navbar
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        onDateFromChange={setDateFrom}
+        onDateToChange={setDateTo}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        today={today}
+        maxDate={maxDate}
+      />
+
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-7xl">
         {/* Header */}
         <div className="text-center mb-4 sm:mb-8">
@@ -224,23 +294,9 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Filters and Date Range Selector */}
+        {/* Filters */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-3 sm:p-4 md:p-6 mb-4 sm:mb-8 border border-gray-200 dark:border-gray-700">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
-            <DatePicker
-              label="From Date"
-              value={dateFrom}
-              onChange={setDateFrom}
-              min={today}
-              max={maxDate}
-            />
-            <DatePicker
-              label="To Date"
-              value={dateTo}
-              onChange={setDateTo}
-              min={dateFrom}
-              max={maxDate}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
             {countries.length > 0 && (
               <FilterSelect
                 label="Country"
@@ -375,7 +431,44 @@ export default function Home() {
         )}
 
         {/* Results */}
-        {!loadingFixtures && filteredFixtures.length > 0 && (
+        {viewMode === 'historical' ? (
+          <div>
+            {loadingHistorical ? (
+              <div className="text-center py-12">
+                <FaRobot className="text-6xl mb-4 mx-auto text-purple-600 dark:text-purple-400 animate-pulse" />
+                <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Loading historical predictions...
+                </h3>
+              </div>
+            ) : historicalPredictions.length > 0 ? (
+              <>
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-3 sm:p-4 mb-4 sm:mb-6 border border-gray-200 dark:border-gray-700">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+                    {historicalPredictions.length} Historical Prediction{historicalPredictions.length !== 1 ? 's' : ''}
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Predictions from {dateFrom} to {dateTo}
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
+                  {historicalPredictions.map((prediction) => (
+                    <MatchCard key={`${prediction.match.match_id}-${prediction.match.match_date}`} prediction={prediction} />
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-12">
+                <FaSearch className="text-6xl mb-4 mx-auto text-gray-400 dark:text-gray-500" />
+                <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  No historical predictions found
+                </h3>
+                <p className="text-gray-500 dark:text-gray-400">
+                  No predictions found for the selected date range and filters
+                </p>
+              </div>
+            )}
+          </div>
+        ) : !loadingFixtures && filteredFixtures.length > 0 && (
           <div>
             {currentPagePredictions.length > 0 ? (
               <>

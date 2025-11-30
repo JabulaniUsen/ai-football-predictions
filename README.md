@@ -10,16 +10,27 @@ Create a `.env.local` file in the root directory with the following environment 
 # Required: API Football API key for fetching match data
 NEXT_PUBLIC_API_FOOTBALL_KEY=your_api_football_key_here
 
-# Optional: Cerebras API key for AI-enhanced predictions
-# If not set, the app will use statistical models only
-CEREBRAS_API_KEY=your_cerebras_api_key_here
-# OR use NEXT_PUBLIC_CEREBRAS_API_KEY if you need client-side access
-
-# Optional: Cerebras model name (defaults to 'llama-3-70b-instruct')
-CEREBRAS_MODEL=llama-3-70b-instruct
+# Required: Supabase configuration for storing predictions
+NEXT_PUBLIC_SUPABASE_URL=https://cmjefszkbalkfdxnbkui.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNtamVmc3prYmFsa2ZkeG5ia3VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ0MTM0MzgsImV4cCI6MjA3OTk4OTQzOH0.EkmlVwy-FpJfzxGcCOXm9ZLzA1aV7-5VtF-J0J1R3oY
 ```
 
-**Note:** If the Cerebras API key is not configured, the app will still work but will use statistical models only (without AI enhancement). You'll see a warning in the console, but predictions will still be generated.
+### Database Setup
+
+1. Run the Supabase migration to create the necessary tables:
+   ```bash
+   # Using Supabase CLI (if installed)
+   supabase db push
+   
+   # Or manually run the SQL migration file:
+   # supabase/migrations/001_create_predictions_table.sql
+   ```
+
+2. The migration creates two tables:
+   - `matches`: Stores match information
+   - `predictions`: Stores AI-generated predictions with all statistics
+
+3. Predictions are automatically saved to the database when generated.
 
 ### Running the Development Server
 
