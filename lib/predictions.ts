@@ -158,12 +158,13 @@ function analyzeForm(latestMatches: any[], teamId: string): {
 
 /**
  * Calculate expected goals based on team statistics
+ * Returns null if insufficient data is available
  */
 function calculateExpectedGoals(
   teamStats: TeamStats | null,
   isHome: boolean
-): number {
-  if (!teamStats) return 1.5; // Default if no stats available
+): number | null {
+  if (!teamStats) return null; // No stats available
 
   const played = isHome
     ? parseInt(teamStats.home_league_payed || '0', 10)
@@ -172,18 +173,21 @@ function calculateExpectedGoals(
     ? parseInt(teamStats.home_league_GF || '0', 10)
     : parseInt(teamStats.away_league_GF || '0', 10);
 
-  if (played === 0) return 1.5;
+  // Require at least 3 matches for reliable statistics
+  if (played < 3) return null;
+  
   return goalsFor / played;
 }
 
 /**
  * Calculate expected goals conceded
+ * Returns null if insufficient data is available
  */
 function calculateExpectedGoalsConceded(
   teamStats: TeamStats | null,
   isHome: boolean
-): number {
-  if (!teamStats) return 1.5;
+): number | null {
+  if (!teamStats) return null;
 
   const played = isHome
     ? parseInt(teamStats.home_league_payed || '0', 10)
@@ -192,7 +196,9 @@ function calculateExpectedGoalsConceded(
     ? parseInt(teamStats.home_league_GA || '0', 10)
     : parseInt(teamStats.away_league_GA || '0', 10);
 
-  if (played === 0) return 1.5;
+  // Require at least 3 matches for reliable statistics
+  if (played < 3) return null;
+  
   return goalsAgainst / played;
 }
 
@@ -200,12 +206,41 @@ function calculateExpectedGoalsConceded(
  * Generate prediction for a match
  */
 export async function generatePrediction(match: Match): Promise<MatchPrediction> {
+  // Fetch odds if not already present
+  let matchWithOdds = { ...match };
+  if (!match.match_odd_1 && !match.match_odd_x && !match.match_odd_2) {
+    try {
+      const { getMatchOdds } = await import('@/lib/api');
+      const odds = await getMatchOdds(match.match_id);
+      if (odds && (odds.odd_1 || odds.odd_x || odds.odd_2)) {
+        matchWithOdds = {
+          ...match,
+          match_odd_1: odds.odd_1,
+          match_odd_x: odds.odd_x,
+          match_odd_2: odds.odd_2,
+        };
+        console.log(`✅ Fetched odds for match ${match.match_id}:`, odds);
+      } else {
+        console.log(`⚠️ No odds found for match ${match.match_id}`);
+      }
+    } catch (error) {
+      console.warn(`Failed to fetch odds for match ${match.match_id}:`, error);
+      // Continue without odds
+    }
+  } else {
+    console.log(`✅ Odds already present for match ${match.match_id}:`, {
+      odd_1: match.match_odd_1,
+      odd_x: match.match_odd_x,
+      odd_2: match.match_odd_2,
+    });
+  }
+  
   // Fetch H2H data
-  const h2hData = await getH2H(match.match_hometeam_id, match.match_awayteam_id);
+  const h2hData = await getH2H(matchWithOdds.match_hometeam_id, matchWithOdds.match_awayteam_id);
   
   // Fetch team statistics
-  const homeStats = await getTeamStats(match.match_hometeam_id, match.league_id);
-  const awayStats = await getTeamStats(match.match_awayteam_id, match.league_id);
+  const homeStats = await getTeamStats(matchWithOdds.match_hometeam_id, matchWithOdds.league_id);
+  const awayStats = await getTeamStats(matchWithOdds.match_awayteam_id, matchWithOdds.league_id);
 
   // Analyze H2H
   const h2hAnalysis = analyzeH2H(
@@ -218,35 +253,63 @@ export async function generatePrediction(match: Match): Promise<MatchPrediction>
   const homeForm = h2hData ? analyzeForm(h2hData.firstTeam_Latest || [], match.match_hometeam_id) : null;
   const awayForm = h2hData ? analyzeForm(h2hData.secondTeam_Latest || [], match.match_awayteam_id) : null;
 
-  // Calculate expected goals
-  let homeExpectedGoals = calculateExpectedGoals(homeStats, true);
-  let awayExpectedGoals = calculateExpectedGoals(awayStats, false);
+  // Calculate expected goals (require actual data, no defaults)
+  const homeExpectedGoalsRaw = calculateExpectedGoals(homeStats, true);
+  const awayExpectedGoalsRaw = calculateExpectedGoals(awayStats, false);
 
-  // Adjust based on opponent's defense
+  // Check if we have minimum required data
+  const hasHomeStats = homeExpectedGoalsRaw !== null;
+  const hasAwayStats = awayExpectedGoalsRaw !== null;
+  const hasH2H = h2hAnalysis.totalMatches >= 2; // At least 2 H2H matches
+  const hasForm = (homeForm && homeForm.avgGoalsFor > 0) || (awayForm && awayForm.avgGoalsFor > 0);
+
+  // Require at least team stats OR H2H data to make a prediction
+  if (!hasHomeStats && !hasAwayStats && !hasH2H) {
+    console.warn(`⚠️ Insufficient data for match ${match.match_id}: No team stats or H2H data available`);
+    // Still proceed but with very low confidence
+  }
+
+  // Start with available data or use H2H averages as fallback
+  let homeExpectedGoals = homeExpectedGoalsRaw ?? (hasH2H ? h2hAnalysis.avgHomeGoals : 1.2);
+  let awayExpectedGoals = awayExpectedGoalsRaw ?? (hasH2H ? h2hAnalysis.avgAwayGoals : 1.2);
+
+  // Adjust based on opponent's defense (only if we have the data)
   const homeExpectedConceded = calculateExpectedGoalsConceded(homeStats, true);
   const awayExpectedConceded = calculateExpectedGoalsConceded(awayStats, false);
   
-  // Factor in opponent's defensive strength
-  homeExpectedGoals = (homeExpectedGoals + (2.0 - awayExpectedConceded)) / 2;
-  awayExpectedGoals = (awayExpectedGoals + (2.0 - homeExpectedConceded)) / 2;
-
-  // Factor in H2H if available
-  if (h2hAnalysis.totalMatches > 0) {
-    homeExpectedGoals = (homeExpectedGoals * 0.6) + (h2hAnalysis.avgHomeGoals * 0.4);
-    awayExpectedGoals = (awayExpectedGoals * 0.6) + (h2hAnalysis.avgAwayGoals * 0.4);
+  // Factor in opponent's defensive strength (only if both stats available)
+  if (homeExpectedConceded !== null && awayExpectedConceded !== null) {
+    homeExpectedGoals = (homeExpectedGoals * 0.6) + ((2.0 - awayExpectedConceded) * 0.4);
+    awayExpectedGoals = (awayExpectedGoals * 0.6) + ((2.0 - homeExpectedConceded) * 0.4);
+  } else if (awayExpectedConceded !== null) {
+    // Only away defense available
+    homeExpectedGoals = (homeExpectedGoals * 0.7) + ((2.0 - awayExpectedConceded) * 0.3);
+  } else if (homeExpectedConceded !== null) {
+    // Only home defense available
+    awayExpectedGoals = (awayExpectedGoals * 0.7) + ((2.0 - homeExpectedConceded) * 0.3);
   }
 
-  // Factor in recent form
-  if (homeForm && homeForm.avgGoalsFor > 0) {
-    homeExpectedGoals = (homeExpectedGoals * 0.7) + (homeForm.avgGoalsFor * 0.3);
-  }
-  if (awayForm && awayForm.avgGoalsFor > 0) {
-    awayExpectedGoals = (awayExpectedGoals * 0.7) + (awayForm.avgGoalsFor * 0.3);
+  // Factor in H2H if available (weight based on number of matches)
+  if (hasH2H) {
+    const h2hWeight = Math.min(0.5, h2hAnalysis.totalMatches / 10); // Up to 50% weight for 10+ matches
+    const statsWeight = 1 - h2hWeight;
+    homeExpectedGoals = (homeExpectedGoals * statsWeight) + (h2hAnalysis.avgHomeGoals * h2hWeight);
+    awayExpectedGoals = (awayExpectedGoals * statsWeight) + (h2hAnalysis.avgAwayGoals * h2hWeight);
   }
 
-  // Ensure minimum values
-  homeExpectedGoals = Math.max(0.5, Math.min(4.0, homeExpectedGoals));
-  awayExpectedGoals = Math.max(0.5, Math.min(4.0, awayExpectedGoals));
+  // Factor in recent form (only if we have meaningful form data)
+  if (homeForm && homeForm.avgGoalsFor > 0 && homeForm.goalsFor > 0) {
+    const formWeight = 0.2; // 20% weight for form
+    homeExpectedGoals = (homeExpectedGoals * (1 - formWeight)) + (homeForm.avgGoalsFor * formWeight);
+  }
+  if (awayForm && awayForm.avgGoalsFor > 0 && awayForm.goalsFor > 0) {
+    const formWeight = 0.2; // 20% weight for form
+    awayExpectedGoals = (awayExpectedGoals * (1 - formWeight)) + (awayForm.avgGoalsFor * formWeight);
+  }
+
+  // Ensure reasonable values (but don't force defaults)
+  homeExpectedGoals = Math.max(0.3, Math.min(4.5, homeExpectedGoals));
+  awayExpectedGoals = Math.max(0.3, Math.min(4.5, awayExpectedGoals));
 
   // Calculate score probabilities
   const scoreProbs = calculateScoreProbabilities(homeExpectedGoals, awayExpectedGoals);
@@ -275,15 +338,19 @@ export async function generatePrediction(match: Match): Promise<MatchPrediction>
     awayWinProb = (awayWinProb / total) * 100;
   }
 
-  // Factor in H2H record
-  if (h2hAnalysis.totalMatches >= 3) {
+  // Factor in H2H record (only if we have sufficient H2H data)
+  if (h2hAnalysis.totalMatches >= 2) {
     const h2hHomeWinRate = h2hAnalysis.homeWins / h2hAnalysis.totalMatches;
     const h2hDrawRate = h2hAnalysis.draws / h2hAnalysis.totalMatches;
     const h2hAwayWinRate = h2hAnalysis.awayWins / h2hAnalysis.totalMatches;
 
-    homeWinProb = (homeWinProb * 0.7) + (h2hHomeWinRate * 100 * 0.3);
-    drawProb = (drawProb * 0.7) + (h2hDrawRate * 100 * 0.3);
-    awayWinProb = (awayWinProb * 0.7) + (h2hAwayWinRate * 100 * 0.3);
+    // Weight H2H more heavily if we have many matches
+    const h2hWeight = Math.min(0.4, h2hAnalysis.totalMatches / 15); // Up to 40% for 15+ matches
+    const statsWeight = 1 - h2hWeight;
+    
+    homeWinProb = (homeWinProb * statsWeight) + (h2hHomeWinRate * 100 * h2hWeight);
+    drawProb = (drawProb * statsWeight) + (h2hDrawRate * 100 * h2hWeight);
+    awayWinProb = (awayWinProb * statsWeight) + (h2hAwayWinRate * 100 * h2hWeight);
   }
 
   // Calculate BTTS probability
@@ -306,18 +373,48 @@ export async function generatePrediction(match: Match): Promise<MatchPrediction>
   over25Prob = Math.min(95, Math.max(5, over25Prob * 100));
   const under25Prob = 100 - over25Prob;
 
-  // Calculate overall confidence
-  const confidenceFactors = [
-    h2hAnalysis.totalMatches >= 3 ? 1.0 : 0.5,
-    homeStats ? 1.0 : 0.5,
-    awayStats ? 1.0 : 0.5,
-    homeForm ? 1.0 : 0.5,
-    awayForm ? 1.0 : 0.5,
+  // Calculate overall confidence based on data availability and quality
+  const dataQualityFactors = [
+    // H2H data quality (0-1.0)
+    h2hAnalysis.totalMatches >= 5 ? 1.0 : 
+    h2hAnalysis.totalMatches >= 3 ? 0.8 : 
+    h2hAnalysis.totalMatches >= 2 ? 0.6 : 
+    h2hAnalysis.totalMatches >= 1 ? 0.4 : 0.0,
+    
+    // Home team stats quality (0-1.0)
+    hasHomeStats ? 1.0 : 0.0,
+    
+    // Away team stats quality (0-1.0)
+    hasAwayStats ? 1.0 : 0.0,
+    
+    // Recent form quality (0-1.0)
+    (homeForm && homeForm.goalsFor > 0) ? 0.8 : 0.0,
+    (awayForm && awayForm.goalsFor > 0) ? 0.8 : 0.0,
   ];
-  const confidence = (confidenceFactors.reduce((a, b) => a + b, 0) / confidenceFactors.length) * 100;
+  
+  const totalDataQuality = dataQualityFactors.reduce((a, b) => a + b, 0);
+  const maxPossibleQuality = dataQualityFactors.length;
+  
+  // Confidence is based on data quality (minimum 30% if we have any data, 0% if no data)
+  let confidence = 0;
+  if (totalDataQuality > 0) {
+    confidence = Math.max(30, (totalDataQuality / maxPossibleQuality) * 100);
+  } else {
+    confidence = 0; // No data available
+  }
+  
+  // Log data sources used for transparency
+  console.log(`📊 Prediction data sources for match ${match.match_id}:`, {
+    h2hMatches: h2hAnalysis.totalMatches,
+    hasHomeStats,
+    hasAwayStats,
+    hasHomeForm: !!(homeForm && homeForm.goalsFor > 0),
+    hasAwayForm: !!(awayForm && awayForm.goalsFor > 0),
+    confidence: Math.round(confidence),
+  });
 
   return {
-    match,
+    match: matchWithOdds,
     winner: {
       home: Math.round(homeWinProb * 10) / 10,
       draw: Math.round(drawProb * 10) / 10,

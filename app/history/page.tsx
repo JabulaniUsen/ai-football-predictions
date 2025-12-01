@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { format, addDays, subDays } from 'date-fns';
-import { FaFutbol, FaRobot, FaSearch, FaTh, FaList } from 'react-icons/fa';
-import { getHistoricalPredictions } from '@/lib/db';
+import { FaFutbol, FaSearch, FaTh, FaList, FaTrash, FaCheckSquare, FaSquare } from 'react-icons/fa';
+import { getHistoricalPredictions, deletePrediction, deletePredictions, deleteAllPredictions } from '@/lib/db';
 import { MatchPrediction } from '@/types';
 import MatchCard from '@/components/MatchCard';
 import FilterSelect from '@/components/FilterSelect';
 import Navbar from '@/components/Navbar';
 import DatePicker from '@/components/DatePicker';
+import { Button } from '@/components/ui/button';
 
 export default function HistoryPage() {
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -23,6 +24,8 @@ export default function HistoryPage() {
   const [loadingHistorical, setLoadingHistorical] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [selectedPredictions, setSelectedPredictions] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Get unique leagues and countries from historical predictions
   const leagues = useMemo(() => {
@@ -79,6 +82,100 @@ export default function HistoryPage() {
     loadHistoricalPredictions();
   }, [loadHistoricalPredictions]);
 
+  // Clear selection when predictions change
+  useEffect(() => {
+    setSelectedPredictions(new Set());
+  }, [historicalPredictions.length]);
+
+  // Toggle selection for a prediction
+  const toggleSelection = useCallback((predictionId: string) => {
+    setSelectedPredictions((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(predictionId)) {
+        newSet.delete(predictionId);
+      } else {
+        newSet.add(predictionId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Select all predictions
+  const selectAll = useCallback(() => {
+    const allIds = historicalPredictions
+      .map((p) => p.predictionId)
+      .filter((id): id is string => !!id);
+    setSelectedPredictions(new Set(allIds));
+  }, [historicalPredictions]);
+
+  // Deselect all predictions
+  const deselectAll = useCallback(() => {
+    setSelectedPredictions(new Set());
+  }, []);
+
+  // Delete selected predictions
+  const handleDeleteSelected = useCallback(async () => {
+    if (selectedPredictions.size === 0) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${selectedPredictions.size} prediction(s)? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    try {
+      const ids = Array.from(selectedPredictions);
+      const success = await deletePredictions(ids);
+      
+      if (success) {
+        setSelectedPredictions(new Set());
+        await loadHistoricalPredictions();
+      } else {
+        setError('Failed to delete some predictions');
+      }
+    } catch (err) {
+      console.error('Error deleting predictions:', err);
+      setError('Failed to delete predictions');
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [selectedPredictions, loadHistoricalPredictions]);
+
+  // Delete all predictions
+  const handleDeleteAll = useCallback(async () => {
+    const count = historicalPredictions.length;
+    if (count === 0) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ALL ${count} prediction(s) in the current view? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    try {
+      const success = await deleteAllPredictions(
+        dateFrom,
+        dateTo,
+        selectedLeague || undefined,
+        selectedCountry || undefined
+      );
+      
+      if (success) {
+        setSelectedPredictions(new Set());
+        await loadHistoricalPredictions();
+      } else {
+        setError('Failed to delete predictions');
+      }
+    } catch (err) {
+      console.error('Error deleting all predictions:', err);
+      setError('Failed to delete predictions');
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [historicalPredictions.length, dateFrom, dateTo, selectedLeague, selectedCountry, loadHistoricalPredictions]);
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
       {/* Navbar */}
@@ -103,12 +200,9 @@ export default function HistoryPage() {
           <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2 flex items-center justify-center gap-3">
             <FaFutbol className="text-blue-600 dark:text-blue-400" />
             Historical Predictions
-            <FaRobot className="text-purple-600 dark:text-purple-400" />
           </h1>
           <p className="text-sm sm:text-base md:text-lg text-gray-600 dark:text-gray-400 px-2 flex items-center justify-center gap-2">
-            <FaRobot className="text-purple-500 dark:text-purple-400 text-xs" />
             View past predictions and analyze historical performance
-            <FaRobot className="text-purple-500 dark:text-purple-400 text-xs" />
           </p>
         </div>
 
@@ -167,41 +261,91 @@ export default function HistoryPage() {
         {/* Results Summary */}
         {historicalPredictions.length > 0 && (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-3 sm:p-4 mb-4 sm:mb-6 border border-gray-200 dark:border-gray-700">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex-1">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-                  {historicalPredictions.length} Historical Prediction{historicalPredictions.length !== 1 ? 's' : ''}
-                </h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  From {format(new Date(dateFrom), 'MMM d, yyyy')} to {format(new Date(dateTo), 'MMM d, yyyy')}
-                  {selectedCountry && ` • Country: ${countries.find(c => c.id === selectedCountry)?.name || 'All'}`}
-                  {selectedLeague && ` • League: ${leagues.find(l => l.id === selectedLeague)?.name || 'All'}`}
-                </p>
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex-1">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+                    {historicalPredictions.length} Historical Prediction{historicalPredictions.length !== 1 ? 's' : ''}
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    From {format(new Date(dateFrom), 'MMM d, yyyy')} to {format(new Date(dateTo), 'MMM d, yyyy')}
+                    {selectedCountry && ` • Country: ${countries.find(c => c.id === selectedCountry)?.name || 'All'}`}
+                    {selectedLeague && ` • League: ${leagues.find(l => l.id === selectedLeague)?.name || 'All'}`}
+                  </p>
+                </div>
+                {/* View Toggle */}
+                <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`p-2 rounded-md transition-colors ${
+                      viewMode === 'grid'
+                        ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                    }`}
+                    title="Grid view"
+                  >
+                    <FaTh className="text-sm" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`p-2 rounded-md transition-colors ${
+                      viewMode === 'list'
+                        ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                    }`}
+                    title="List view"
+                  >
+                    <FaList className="text-sm" />
+                  </button>
+                </div>
               </div>
-              {/* View Toggle */}
-              <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`p-2 rounded-md transition-colors ${
-                    viewMode === 'grid'
-                      ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                  }`}
-                  title="Grid view"
-                >
-                  <FaTh className="text-sm" />
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`p-2 rounded-md transition-colors ${
-                    viewMode === 'list'
-                      ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                  }`}
-                  title="List view"
-                >
-                  <FaList className="text-sm" />
-                </button>
+              
+              {/* Selection and Delete Controls */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={selectedPredictions.size === historicalPredictions.length ? deselectAll : selectAll}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+                  >
+                    {selectedPredictions.size === historicalPredictions.length ? (
+                      <FaCheckSquare className="text-blue-600 dark:text-blue-400" />
+                    ) : (
+                      <FaSquare className="text-gray-400" />
+                    )}
+                    <span>
+                      {selectedPredictions.size === historicalPredictions.length
+                        ? 'Deselect All'
+                        : 'Select All'}
+                    </span>
+                  </button>
+                  {selectedPredictions.size > 0 && (
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      {selectedPredictions.size} selected
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {selectedPredictions.size > 0 && (
+                    <Button
+                      onClick={handleDeleteSelected}
+                      disabled={isDeleting}
+                      variant="destructive"
+                      className="flex items-center gap-2"
+                    >
+                      <FaTrash />
+                      Delete Selected ({selectedPredictions.size})
+                    </Button>
+                  )}
+                  <Button
+                    onClick={handleDeleteAll}
+                    disabled={isDeleting}
+                    variant="destructive"
+                    className="flex items-center gap-2"
+                  >
+                    <FaTrash />
+                    Delete All
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
@@ -210,7 +354,6 @@ export default function HistoryPage() {
         {/* Results */}
         {loadingHistorical ? (
           <div className="text-center py-12">
-            <FaRobot className="text-6xl mb-4 mx-auto text-purple-600 dark:text-purple-400 animate-pulse" />
             <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
               Loading historical predictions...
             </h3>
@@ -222,12 +365,35 @@ export default function HistoryPage() {
           }>
             {historicalPredictions.map((prediction) => {
               const predictionWithId = prediction as MatchPrediction & { predictionId?: string };
+              const isSelected = predictionWithId.predictionId 
+                ? selectedPredictions.has(predictionWithId.predictionId)
+                : false;
               return (
-                <MatchCard
-                  key={predictionWithId.predictionId || `${prediction.match.match_id}-${prediction.match.match_date}`}
-                  prediction={prediction}
-                  viewMode={viewMode}
-                />
+                <div key={predictionWithId.predictionId || `${prediction.match.match_id}-${prediction.match.match_date}`} className="relative">
+                  {predictionWithId.predictionId && (
+                    <div className="absolute top-2 right-2 z-10">
+                      <button
+                        onClick={() => toggleSelection(predictionWithId.predictionId!)}
+                        className={`p-1 rounded transition-colors ${
+                          isSelected
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-slate-900/80 backdrop-blur-sm text-slate-400 hover:text-slate-300 border border-slate-700/50'
+                        } shadow-lg`}
+                        title={isSelected ? 'Deselect' : 'Select'}
+                      >
+                        {isSelected ? (
+                          <FaCheckSquare className="w-3 h-3" />
+                        ) : (
+                          <FaSquare className="w-3 h-3" />
+                        )}
+                      </button>
+                    </div>
+                  )}
+                  <MatchCard
+                    prediction={prediction}
+                    viewMode={viewMode}
+                  />
+                </div>
               );
             })}
           </div>

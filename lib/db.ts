@@ -262,3 +262,95 @@ export async function getAvailablePredictionDates() {
   }
 }
 
+/**
+ * Delete a single prediction by ID
+ */
+export async function deletePrediction(predictionId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('predictions')
+      .delete()
+      .eq('id', predictionId);
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting prediction:', error);
+    return false;
+  }
+}
+
+/**
+ * Delete multiple predictions by IDs
+ */
+export async function deletePredictions(predictionIds: string[]): Promise<boolean> {
+  try {
+    if (predictionIds.length === 0) return true;
+
+    const { error } = await supabase
+      .from('predictions')
+      .delete()
+      .in('id', predictionIds);
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting predictions:', error);
+    return false;
+  }
+}
+
+/**
+ * Delete all predictions within a date range (optional filters)
+ */
+export async function deleteAllPredictions(
+  dateFrom?: string,
+  dateTo?: string,
+  leagueId?: string,
+  countryId?: string
+): Promise<boolean> {
+  try {
+    let query = supabase.from('predictions').delete();
+
+    // If filters are provided, we need to delete based on match criteria
+    if (dateFrom || dateTo || leagueId || countryId) {
+      // First, get the match IDs that match the criteria
+      let matchQuery = supabase
+        .from('matches')
+        .select('id');
+
+      if (dateFrom) {
+        matchQuery = matchQuery.gte('match_date', dateFrom);
+      }
+      if (dateTo) {
+        matchQuery = matchQuery.lte('match_date', dateTo);
+      }
+      if (leagueId) {
+        matchQuery = matchQuery.eq('league_id', leagueId);
+      }
+      if (countryId) {
+        matchQuery = matchQuery.eq('country_id', countryId);
+      }
+
+      const { data: matches, error: matchError } = await matchQuery;
+
+      if (matchError) throw matchError;
+
+      if (!matches || matches.length === 0) {
+        return true; // No matches to delete
+      }
+
+      const matchIds = matches.map((m: any) => m.id);
+      query = query.in('match_id', matchIds);
+    }
+
+    const { error } = await query;
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting all predictions:', error);
+    return false;
+  }
+}
+

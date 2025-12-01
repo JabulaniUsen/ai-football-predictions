@@ -25,6 +25,10 @@ export interface Match {
   match_referee?: string;
   team_home_badge?: string;
   team_away_badge?: string;
+  // Odds fields (from API Football v3)
+  match_odd_1?: string; // Home win odds
+  match_odd_x?: string; // Draw odds
+  match_odd_2?: string; // Away win odds
 }
 
 export interface H2HMatch {

@@ -50,8 +50,41 @@ export async function getFixtures(
     if (countryId) {
       endpoint += `&country_id=${countryId}`;
     }
-    const data = await fetchAPI<Match[]>(endpoint);
-    return Array.isArray(data) ? data : [];
+    const data = await fetchAPI<any[]>(endpoint);
+    
+    // Log first match to see structure (only in development)
+    if (process.env.NODE_ENV === 'development' && Array.isArray(data) && data.length > 0) {
+      console.log('Sample API response:', JSON.stringify(data[0], null, 2));
+    }
+    
+    // Map the API response to Match type, handling different possible odds field names
+    const matches: Match[] = (Array.isArray(data) ? data : []).map((item: any) => ({
+      match_id: item.match_id || '',
+      country_id: item.country_id || '',
+      country_name: item.country_name || '',
+      league_id: item.league_id || '',
+      league_name: item.league_name || '',
+      match_date: item.match_date || '',
+      match_time: item.match_time || '',
+      match_hometeam_id: item.match_hometeam_id || '',
+      match_hometeam_name: item.match_hometeam_name || '',
+      match_hometeam_score: item.match_hometeam_score,
+      match_awayteam_id: item.match_awayteam_id || '',
+      match_awayteam_name: item.match_awayteam_name || '',
+      match_awayteam_score: item.match_awayteam_score,
+      match_status: item.match_status || '',
+      match_round: item.match_round,
+      match_stadium: item.match_stadium,
+      match_referee: item.match_referee,
+      team_home_badge: item.team_home_badge,
+      team_away_badge: item.team_away_badge,
+      // Try different possible odds field names
+      match_odd_1: item.match_odd_1 || item.odd_1 || item.odds?.home || item.odds_1x2?.odd_1 || item.bookmakers?.[0]?.bets?.[0]?.values?.find((v: any) => v.value === '1')?.odd,
+      match_odd_x: item.match_odd_x || item.odd_x || item.odds?.draw || item.odds_1x2?.odd_x || item.bookmakers?.[0]?.bets?.[0]?.values?.find((v: any) => v.value === 'X')?.odd,
+      match_odd_2: item.match_odd_2 || item.odd_2 || item.odds?.away || item.odds_1x2?.odd_2 || item.bookmakers?.[0]?.bets?.[0]?.values?.find((v: any) => v.value === '2')?.odd,
+    }));
+    
+    return matches;
   } catch (error) {
     console.error('Error fetching fixtures:', error);
     return [];
@@ -170,5 +203,71 @@ export async function getPredictions(matchId: string): Promise<any> {
     console.warn('Predictions endpoint not available:', error);
     return null;
   }
+}
+
+/**
+ * Fetch odds for a specific match
+ * Tries multiple endpoints and formats
+ */
+export async function getMatchOdds(matchId: string): Promise<{ odd_1?: string; odd_x?: string; odd_2?: string } | null> {
+  // Try get_odds endpoint first
+  try {
+    const data = await fetchAPI<any>(
+      `action=get_odds&match_id=${matchId}`
+    );
+    
+    // Handle different possible response structures
+    if (Array.isArray(data) && data.length > 0) {
+      const odds = data[0];
+      const result = {
+        odd_1: odds.match_odd_1 || odds.odd_1 || odds.odds?.home || odds['1'] || odds.home,
+        odd_x: odds.match_odd_x || odds.odd_x || odds.odds?.draw || odds['X'] || odds.draw,
+        odd_2: odds.match_odd_2 || odds.odd_2 || odds.odds?.away || odds['2'] || odds.away,
+      };
+      if (result.odd_1 || result.odd_x || result.odd_2) {
+        return result;
+      }
+    }
+    
+    // If it's an object directly
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      const result = {
+        odd_1: data.match_odd_1 || data.odd_1 || data.odds?.home || data['1'] || data.home,
+        odd_x: data.match_odd_x || data.odd_x || data.odds?.draw || data['X'] || data.draw,
+        odd_2: data.match_odd_2 || data.odd_2 || data.odds?.away || data['2'] || data.away,
+      };
+      if (result.odd_1 || result.odd_x || result.odd_2) {
+        return result;
+      }
+    }
+  } catch (error) {
+    // Try alternative endpoint
+    console.warn('get_odds endpoint failed, trying alternatives:', error);
+  }
+  
+  // Try get_events with match_id to get odds
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const data = await fetchAPI<any[]>(
+      `action=get_events&from=${today}&to=${tomorrow}&match_id=${matchId}`
+    );
+    
+    if (Array.isArray(data) && data.length > 0) {
+      const match = data.find(m => m.match_id === matchId) || data[0];
+      const result = {
+        odd_1: match.match_odd_1 || match.odd_1 || match.odds?.home || match['1'] || match.home,
+        odd_x: match.match_odd_x || match.odd_x || match.odds?.draw || match['X'] || match.draw,
+        odd_2: match.match_odd_2 || match.odd_2 || match.odds?.away || match['2'] || match.away,
+      };
+      if (result.odd_1 || result.odd_x || result.odd_2) {
+        return result;
+      }
+    }
+  } catch (error) {
+    console.warn('Alternative odds fetch failed:', error);
+  }
+  
+  return null;
 }
 

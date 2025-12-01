@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { format, addDays } from 'date-fns';
-import { FaFutbol, FaSearch, FaCheckCircle, FaRobot, FaTh, FaList } from 'react-icons/fa';
+import { FaFutbol, FaSearch, FaCheckCircle, FaTh, FaList } from 'react-icons/fa';
 import { getFixtures, getUniqueLeagues, getUniqueCountries } from '@/lib/api';
 import { generatePrediction } from '@/lib/predictions';
 import { saveMatchAndPrediction } from '@/lib/db';
@@ -24,6 +24,7 @@ export default function Home() {
   const [selectedLeague, setSelectedLeague] = useState('');
   const [selectedCountry, setSelectedCountry] = useState('');
   const [maxPredictions, setMaxPredictions] = useState(DEFAULT_PREDICTIONS);
+  const [maxPredictionsInput, setMaxPredictionsInput] = useState(String(DEFAULT_PREDICTIONS));
   const [currentPage, setCurrentPage] = useState(1);
   
   const [fixtures, setFixtures] = useState<Match[]>([]);
@@ -138,8 +139,14 @@ export default function Home() {
     setProgress({ current: 0, total: 0 });
     setLoadingMessage(loadingMessages[0]);
 
+    // Remove duplicates from fixtures (by match_id) and get current predictions
+    const currentPredictions = new Map(predictions);
+    const uniqueFixtures = Array.from(
+      new Map(filteredFixtures.map(f => [f.match_id, f])).values()
+    ).filter(f => !currentPredictions.has(f.match_id)); // Filter out already processed
+
     // Get fixtures to process (up to maxPredictions limit)
-    const fixturesToProcess = filteredFixtures.slice(0, Math.min(maxPredictions, MAX_PREDICTIONS));
+    const fixturesToProcess = uniqueFixtures.slice(0, Math.min(maxPredictions, MAX_PREDICTIONS));
 
     if (fixturesToProcess.length === 0) {
       setLoadingPredictions(false);
@@ -149,55 +156,83 @@ export default function Home() {
     setProgress({ current: 0, total: fixturesToProcess.length });
 
     try {
-      setPredictions((prevPredictions) => {
-        const newPredictions = new Map(prevPredictions);
+      // Track processing to avoid duplicates
+      const processingSet = new Set<string>();
+      
+      // Process predictions asynchronously
+      for (let i = 0; i < fixturesToProcess.length; i++) {
+        const fixture = fixturesToProcess[i];
         
-        // Process predictions asynchronously
+        // Skip if already processing or has prediction
+        if (processingSet.has(fixture.match_id)) {
+          setProgress((prev) => ({ current: prev.current + 1, total: prev.total }));
+          continue;
+        }
+        
+        processingSet.add(fixture.match_id);
+        
+        // Generate prediction asynchronously
         (async () => {
-          for (let i = 0; i < fixturesToProcess.length; i++) {
-            const fixture = fixturesToProcess[i];
+          try {
+            const prediction = await generatePrediction(fixture);
             
-            // Skip if already has prediction
-            if (newPredictions.has(fixture.match_id)) {
-              setProgress((prev) => ({ current: prev.current + 1, total: prev.total }));
-              continue;
-            }
-
+            // Save to database
             try {
-              const prediction = await generatePrediction(fixture);
-              
-              // Save to database
-              try {
-                await saveMatchAndPrediction(prediction);
-              } catch (dbError) {
-                console.warn('Failed to save prediction to database:', dbError);
-                // Continue even if database save fails
-              }
-              
-              setPredictions((current) => {
-                const updated = new Map(current);
-                updated.set(fixture.match_id, prediction);
-                return updated;
-              });
-              setProgress((prev) => ({ current: prev.current + 1, total: prev.total }));
-            } catch (err) {
-              console.error(`Error generating prediction for match ${fixture.match_id}:`, err);
-              setProgress((prev) => ({ current: prev.current + 1, total: prev.total }));
+              await saveMatchAndPrediction(prediction);
+            } catch (dbError) {
+              console.warn('Failed to save prediction to database:', dbError);
+              // Continue even if database save fails
             }
+            
+            // Add prediction to state, checking again for duplicates
+            setPredictions((prev) => {
+              if (prev.has(fixture.match_id)) {
+                return prev; // Already exists, don't add duplicate
+              }
+              const updated = new Map(prev);
+              updated.set(fixture.match_id, prediction);
+              return updated;
+            });
+            setProgress((prev) => ({ current: prev.current + 1, total: prev.total }));
+          } catch (err) {
+            console.error(`Error generating prediction for match ${fixture.match_id}:`, err);
+            setProgress((prev) => ({ current: prev.current + 1, total: prev.total }));
+          } finally {
+            processingSet.delete(fixture.match_id);
           }
-          setLoadingPredictions(false);
-          setProgress({ current: 0, total: 0 });
         })();
-
-        return prevPredictions;
-      });
+      }
+      
+      // Monitor completion
+      const checkCompletion = setInterval(() => {
+        setPredictions((current) => {
+          const completedCount = fixturesToProcess.filter(f => 
+            current.has(f.match_id)
+          ).length;
+          
+          if (completedCount >= fixturesToProcess.length) {
+            clearInterval(checkCompletion);
+            setLoadingPredictions(false);
+            setProgress({ current: 0, total: 0 });
+          }
+          
+          return current;
+        });
+      }, 500);
+      
+      // Cleanup interval after reasonable timeout
+      setTimeout(() => {
+        clearInterval(checkCompletion);
+        setLoadingPredictions(false);
+        setProgress({ current: 0, total: 0 });
+      }, 300000); // 5 minutes max
     } catch (err) {
       console.error('Error generating predictions:', err);
       setError('Failed to generate some predictions. Please try again.');
       setLoadingPredictions(false);
       setProgress({ current: 0, total: 0 });
     }
-  }, [filteredFixtures, maxPredictions]);
+  }, [filteredFixtures, maxPredictions, predictions]);
 
   // Generate predictions when filtered fixtures change
   useEffect(() => {
@@ -221,7 +256,7 @@ export default function Home() {
 
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col">
       {/* Navbar */}
       <Navbar
         dateFrom={dateFrom}
@@ -242,20 +277,17 @@ export default function Home() {
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-7xl">
         {/* Header */}
         <div className="text-center mb-4 sm:mb-8">
-          <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2 flex items-center justify-center gap-3">
-            <FaFutbol className="text-blue-600 dark:text-blue-400" />
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-white mb-1 sm:mb-2 flex items-center justify-center gap-3">
+            <FaFutbol className="text-blue-400" />
             Football Game Predictor
-            <FaRobot className="text-purple-600 dark:text-purple-400" />
           </h1>
-          <p className="text-sm sm:text-base md:text-lg text-gray-600 dark:text-gray-400 px-2 flex items-center justify-center gap-2">
-            <FaRobot className="text-purple-500 dark:text-purple-400 text-xs" />
+          <p className="text-sm sm:text-base md:text-lg text-slate-400 px-2 flex items-center justify-center gap-2">
             AI-powered predictions based on head-to-head data, team statistics, and recent form
-            <FaRobot className="text-purple-500 dark:text-purple-400 text-xs" />
           </p>
         </div>
 
         {/* Filters */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-3 sm:p-4 md:p-6 mb-4 sm:mb-8 border border-gray-200 dark:border-gray-700">
+        <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 rounded-xl shadow-2xl p-3 sm:p-4 md:p-6 mb-4 sm:mb-8 border border-slate-800/50 backdrop-blur-sm">
           {/* Date Range Fields */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <DatePicker
@@ -301,14 +333,39 @@ export default function Home() {
                 type="number"
                 min="1"
                 max={MAX_PREDICTIONS}
-                value={maxPredictions}
+                value={maxPredictionsInput}
                 onChange={(e) => {
-                  const value = parseInt(e.target.value, 10);
-                  if (!isNaN(value) && value >= 1 && value <= MAX_PREDICTIONS) {
-                    setMaxPredictions(value);
+                  const value = e.target.value;
+                  setMaxPredictionsInput(value); // Allow empty string
+                  if (value === '') {
+                    setMaxPredictions(DEFAULT_PREDICTIONS);
+                  } else {
+                    const numValue = parseInt(value, 10);
+                    if (!isNaN(numValue) && numValue >= 1 && numValue <= MAX_PREDICTIONS) {
+                      setMaxPredictions(numValue);
+                    }
                   }
                 }}
-                placeholder={`1-${MAX_PREDICTIONS}`}
+                onBlur={(e) => {
+                  const value = e.target.value;
+                  if (value === '' || isNaN(parseInt(value, 10)) || parseInt(value, 10) < 1) {
+                    setMaxPredictionsInput(String(DEFAULT_PREDICTIONS));
+                    setMaxPredictions(DEFAULT_PREDICTIONS);
+                  } else {
+                    const numValue = parseInt(value, 10);
+                    if (numValue > MAX_PREDICTIONS) {
+                      setMaxPredictionsInput(String(MAX_PREDICTIONS));
+                      setMaxPredictions(MAX_PREDICTIONS);
+                    } else if (numValue < 1) {
+                      setMaxPredictionsInput(String(DEFAULT_PREDICTIONS));
+                      setMaxPredictions(DEFAULT_PREDICTIONS);
+                    } else {
+                      setMaxPredictionsInput(String(numValue));
+                      setMaxPredictions(numValue);
+                    }
+                  }
+                }}
+                placeholder={`${DEFAULT_PREDICTIONS} (default)`}
               />
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 Max: {MAX_PREDICTIONS} (API limit)
@@ -428,11 +485,9 @@ export default function Home() {
                 {loadingPredictions && !allPredictionsGenerated && (
                   <div className="text-center py-4">
                     <div className="flex items-center justify-center gap-2 mb-1">
-                      <FaRobot className="text-purple-600 dark:text-purple-400 animate-pulse" />
                       <p className="text-lg font-semibold text-gray-700 dark:text-gray-300">
                         {loadingMessage}...
                       </p>
-                      <FaRobot className="text-purple-600 dark:text-purple-400 animate-pulse" />
                     </div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       ({predictions.size} / {filteredFixtures.length})
@@ -442,9 +497,7 @@ export default function Home() {
                 {allPredictionsGenerated && (
                   <div className="text-center py-4 text-green-600 dark:text-green-400 font-semibold flex items-center justify-center gap-2">
                     <FaCheckCircle />
-                    <FaRobot className="text-purple-500 dark:text-purple-400" />
                     <span>All {predictions.size} AI predictions generated successfully!</span>
-                    <FaRobot className="text-purple-500 dark:text-purple-400" />
                   </div>
                 )}
               </>
@@ -452,12 +505,9 @@ export default function Home() {
               <div className="text-center py-12">
                 <div className="flex items-center justify-center gap-3 mb-4">
                   <FaFutbol className="text-5xl text-blue-600 dark:text-blue-400" />
-                  <FaRobot className="text-5xl text-purple-600 dark:text-purple-400 animate-pulse" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center justify-center gap-2">
-                  <FaRobot className="text-purple-500 dark:text-purple-400" />
                   {loadingMessage}...
-                  <FaRobot className="text-purple-500 dark:text-purple-400" />
                 </h3>
                 <p className="text-gray-500 dark:text-gray-400">
                   ({predictions.size} / {filteredFixtures.length})
@@ -467,7 +517,6 @@ export default function Home() {
               <div className="text-center py-12">
                 <div className="flex items-center justify-center gap-3 mb-4">
                   <FaFutbol className="text-5xl text-blue-600 dark:text-blue-400" />
-                  <FaRobot className="text-5xl text-purple-600 dark:text-purple-400" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   No predictions yet
@@ -496,7 +545,6 @@ export default function Home() {
           <div className="text-center py-12">
             <div className="flex items-center justify-center gap-3 mb-4">
               <FaFutbol className="text-5xl text-blue-600 dark:text-blue-400" />
-              <FaRobot className="text-5xl text-purple-600 dark:text-purple-400" />
             </div>
             <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
               No matches loaded

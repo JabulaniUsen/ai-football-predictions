@@ -32,9 +32,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body
-        className={`${inter.variable} ${roboto.variable} antialiased font-sans`}
+        className={`${inter.variable} ${roboto.variable} antialiased font-sans bg-slate-950 text-slate-100`}
       >
         {children}
       </body>
