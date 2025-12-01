@@ -10,6 +10,7 @@ import FilterSelect from '@/components/FilterSelect';
 import Navbar from '@/components/Navbar';
 import DatePicker from '@/components/DatePicker';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 export default function HistoryPage() {
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -20,6 +21,7 @@ export default function HistoryPage() {
   const [dateTo, setDateTo] = useState(today);
   const [selectedLeague, setSelectedLeague] = useState('');
   const [selectedCountry, setSelectedCountry] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [historicalPredictions, setHistoricalPredictions] = useState<(MatchPrediction & { predictionId?: string })[]>([]);
   const [loadingHistorical, setLoadingHistorical] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,10 +84,32 @@ export default function HistoryPage() {
     loadHistoricalPredictions();
   }, [loadHistoricalPredictions]);
 
+  // Filter predictions based on search query
+  const filteredPredictions = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return historicalPredictions;
+    }
+
+    const query = searchQuery.toLowerCase().trim();
+    return historicalPredictions.filter((prediction) => {
+      const homeTeam = prediction.match.match_hometeam_name?.toLowerCase() || '';
+      const awayTeam = prediction.match.match_awayteam_name?.toLowerCase() || '';
+      const league = prediction.match.league_name?.toLowerCase() || '';
+      const country = prediction.match.country_name?.toLowerCase() || '';
+      
+      return (
+        homeTeam.includes(query) ||
+        awayTeam.includes(query) ||
+        league.includes(query) ||
+        country.includes(query)
+      );
+    });
+  }, [historicalPredictions, searchQuery]);
+
   // Clear selection when predictions change
   useEffect(() => {
     setSelectedPredictions(new Set());
-  }, [historicalPredictions.length]);
+  }, [filteredPredictions.length]);
 
   // Toggle selection for a prediction
   const toggleSelection = useCallback((predictionId: string) => {
@@ -102,11 +126,11 @@ export default function HistoryPage() {
 
   // Select all predictions
   const selectAll = useCallback(() => {
-    const allIds = historicalPredictions
+    const allIds = filteredPredictions
       .map((p) => p.predictionId)
       .filter((id): id is string => !!id);
     setSelectedPredictions(new Set(allIds));
-  }, [historicalPredictions]);
+  }, [filteredPredictions]);
 
   // Deselect all predictions
   const deselectAll = useCallback(() => {
@@ -144,7 +168,7 @@ export default function HistoryPage() {
 
   // Delete all predictions
   const handleDeleteAll = useCallback(async () => {
-    const count = historicalPredictions.length;
+    const count = filteredPredictions.length;
     if (count === 0) return;
 
     const confirmed = window.confirm(
@@ -174,7 +198,7 @@ export default function HistoryPage() {
     } finally {
       setIsDeleting(false);
     }
-  }, [historicalPredictions.length, dateFrom, dateTo, selectedLeague, selectedCountry, loadHistoricalPredictions]);
+  }, [filteredPredictions.length, dateFrom, dateTo, selectedLeague, selectedCountry, loadHistoricalPredictions]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
@@ -208,6 +232,23 @@ export default function HistoryPage() {
 
         {/* Filters */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-3 sm:p-4 md:p-6 mb-4 sm:mb-8 border border-gray-200 dark:border-gray-700">
+          {/* Search Field */}
+          <div className="mb-4">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+              Search
+            </label>
+            <div className="relative">
+              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+              <Input
+                type="text"
+                placeholder="Search by team name, league, or country..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 w-full"
+              />
+            </div>
+          </div>
+
           {/* Date Range Fields */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <DatePicker
@@ -259,18 +300,24 @@ export default function HistoryPage() {
         )}
 
         {/* Results Summary */}
-        {historicalPredictions.length > 0 && (
+        {(historicalPredictions.length > 0 || searchQuery.trim()) && (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-3 sm:p-4 mb-4 sm:mb-6 border border-gray-200 dark:border-gray-700">
             <div className="flex flex-col gap-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex-1">
                   <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-                    {historicalPredictions.length} Historical Prediction{historicalPredictions.length !== 1 ? 's' : ''}
+                    {filteredPredictions.length} Historical Prediction{filteredPredictions.length !== 1 ? 's' : ''}
+                    {searchQuery.trim() && filteredPredictions.length !== historicalPredictions.length && (
+                      <span className="text-base font-normal text-gray-600 dark:text-gray-400">
+                        {' '}(of {historicalPredictions.length} total)
+                      </span>
+                    )}
                   </h2>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     From {format(new Date(dateFrom), 'MMM d, yyyy')} to {format(new Date(dateTo), 'MMM d, yyyy')}
                     {selectedCountry && ` • Country: ${countries.find(c => c.id === selectedCountry)?.name || 'All'}`}
                     {selectedLeague && ` • League: ${leagues.find(l => l.id === selectedLeague)?.name || 'All'}`}
+                    {searchQuery.trim() && ` • Search: "${searchQuery}"`}
                   </p>
                 </div>
                 {/* View Toggle */}
@@ -304,16 +351,16 @@ export default function HistoryPage() {
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={selectedPredictions.size === historicalPredictions.length ? deselectAll : selectAll}
+                    onClick={selectedPredictions.size === filteredPredictions.length ? deselectAll : selectAll}
                     className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
                   >
-                    {selectedPredictions.size === historicalPredictions.length ? (
+                    {selectedPredictions.size === filteredPredictions.length && filteredPredictions.length > 0 ? (
                       <FaCheckSquare className="text-blue-600 dark:text-blue-400" />
                     ) : (
                       <FaSquare className="text-gray-400" />
                     )}
                     <span>
-                      {selectedPredictions.size === historicalPredictions.length
+                      {selectedPredictions.size === filteredPredictions.length && filteredPredictions.length > 0
                         ? 'Deselect All'
                         : 'Select All'}
                     </span>
@@ -358,12 +405,12 @@ export default function HistoryPage() {
               Loading historical predictions...
             </h3>
           </div>
-        ) : historicalPredictions.length > 0 ? (
+        ) : filteredPredictions.length > 0 ? (
           <div className={viewMode === 'grid' 
             ? 'grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6'
             : 'flex flex-col gap-4 sm:gap-6'
           }>
-            {historicalPredictions.map((prediction) => {
+            {filteredPredictions.map((prediction) => {
               const predictionWithId = prediction as MatchPrediction & { predictionId?: string };
               const isSelected = predictionWithId.predictionId 
                 ? selectedPredictions.has(predictionWithId.predictionId)
@@ -401,10 +448,12 @@ export default function HistoryPage() {
           <div className="text-center py-12">
             <FaSearch className="text-6xl mb-4 mx-auto text-gray-400 dark:text-gray-500" />
             <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              No historical predictions found
+              {searchQuery.trim() ? 'No matching predictions found' : 'No historical predictions found'}
             </h3>
             <p className="text-gray-500 dark:text-gray-400">
-              No predictions found for the selected date range and filters. Try adjusting your search criteria.
+              {searchQuery.trim() 
+                ? `No predictions match "${searchQuery}". Try adjusting your search query.`
+                : 'No predictions found for the selected date range and filters. Try adjusting your search criteria.'}
             </p>
           </div>
         )}

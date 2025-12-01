@@ -34,11 +34,12 @@ export default function FilterSelect({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          "h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none md:text-sm",
-          "dark:bg-input/30",
-          "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+          "h-9 w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none md:text-sm",
+          "bg-white dark:bg-gray-800",
+          "text-gray-900 dark:text-gray-100",
+          "focus-visible:border-blue-500 dark:focus-visible:border-blue-400 focus-visible:ring-blue-500/50 dark:focus-visible:ring-blue-400/50 focus-visible:ring-[3px]",
           "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
-          "text-foreground"
+          "[&>option]:bg-white [&>option]:dark:bg-gray-800 [&>option]:text-gray-900 [&>option]:dark:text-gray-100"
         )}
       >
         {showAll && (
