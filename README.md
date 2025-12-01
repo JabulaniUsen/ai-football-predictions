@@ -10,6 +10,10 @@ Create a `.env.local` file in the root directory with the following environment 
 # Required: API Football API key for fetching match data
 NEXT_PUBLIC_API_FOOTBALL_KEY=your_api_football_key_here
 
+# Optional: Google Gemini API key for AI-enhanced predictions
+# Get your API key from: https://aistudio.google.com/app/apikey
+NEXT_PUBLIC_GOOGLE_GEMINI_API_KEY=your_gemini_api_key_here
+
 # Required: Supabase configuration for storing predictions
 NEXT_PUBLIC_SUPABASE_URL=https://cmjefszkbalkfdxnbkui.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNtamVmc3prYmFsa2ZkeG5ia3VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ0MTM0MzgsImV4cCI6MjA3OTk4OTQzOH0.EkmlVwy-FpJfzxGcCOXm9ZLzA1aV7-5VtF-J0J1R3oY

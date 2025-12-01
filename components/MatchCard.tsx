@@ -19,7 +19,7 @@ interface MatchCardProps {
 }
 
 export default function MatchCard({ prediction, viewMode = 'grid' }: MatchCardProps) {
-  const { match, winner, predictedScore, bothTeamsToScore, overUnder, confidence, h2hSummary } = prediction;
+  const { match, winner, predictedScore, bothTeamsToScore, overUnder, confidence, aiReasoning, h2hSummary } = prediction;
 
   const getConfidenceColor = (conf: number) => {
     if (conf >= 80) return 'text-emerald-400';
@@ -183,10 +183,18 @@ export default function MatchCard({ prediction, viewMode = 'grid' }: MatchCardPr
                         <span className="text-slate-500">Score:</span>
                         <span className="font-medium text-slate-200">{predictedScore.home} - {predictedScore.away}</span>
                       </div>
-                      <div className="flex justify-between py-1.5">
+                      <div className="flex justify-between py-1.5 border-b border-slate-800">
                         <span className="text-slate-500">Confidence:</span>
                         <span className={`font-semibold ${getConfidenceColor(confidence)}`}>{confidence}%</span>
                       </div>
+                      {aiReasoning && (
+                        <div className="pt-2">
+                          <div className="text-xs text-slate-400 mb-1.5 font-semibold uppercase tracking-wider">AI Analysis</div>
+                          <div className="text-sm text-slate-300 leading-relaxed bg-slate-800/30 rounded-lg p-3 border border-slate-700/50">
+                            {aiReasoning}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                   {(match.match_odd_1 || match.match_odd_x || match.match_odd_2) && (
@@ -394,13 +402,21 @@ export default function MatchCard({ prediction, viewMode = 'grid' }: MatchCardPr
                       <div className="flex justify-between py-1.5 border-b border-slate-800">
                         <span className="text-slate-500">Score:</span>
                         <span className="font-medium text-slate-200">{predictedScore.home} - {predictedScore.away}</span>
-          </div>
-                      <div className="flex justify-between py-1.5">
+                      </div>
+                      <div className="flex justify-between py-1.5 border-b border-slate-800">
                         <span className="text-slate-500">Confidence:</span>
                         <span className={`font-semibold ${getConfidenceColor(confidence)}`}>{confidence}%</span>
-          </div>
-        </div>
-      </div>
+                      </div>
+                      {aiReasoning && (
+                        <div className="pt-2">
+                          <div className="text-xs text-slate-400 mb-1.5 font-semibold uppercase tracking-wider">AI Analysis</div>
+                          <div className="text-sm text-slate-300 leading-relaxed bg-slate-800/30 rounded-lg p-3 border border-slate-700/50">
+                            {aiReasoning}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   {(match.match_odd_1 || match.match_odd_x || match.match_odd_2) && (
             <div>
                       <h3 className="text-sm font-semibold text-slate-300 mb-3">Odds</h3>

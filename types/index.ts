@@ -97,6 +97,7 @@ export interface MatchPrediction {
     under25: number;
   };
   confidence: number; // overall confidence 0-100
+  aiReasoning?: string; // Short AI-generated note explaining the prediction
   h2hSummary?: {
     homeWins: number;
     draws: number;

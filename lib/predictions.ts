@@ -413,26 +413,91 @@ export async function generatePrediction(match: Match): Promise<MatchPrediction>
     confidence: Math.round(confidence),
   });
 
+  // Get AI-enhanced prediction from Gemini - REQUIRED
+  const { getGeminiAnalysis } = await import('@/lib/gemini-ai');
+  const aiPrediction = await getGeminiAnalysis(
+    matchWithOdds,
+    h2hData,
+    homeStats,
+    awayStats,
+    homeForm,
+    awayForm,
+    {
+      homeExpectedGoals,
+      awayExpectedGoals,
+      homeWinProb,
+      drawProb,
+      awayWinProb,
+    }
+  );
+
+  // If AI analysis fails, throw error - don't provide predictions without AI
+  if (!aiPrediction) {
+    throw new Error(`AI analysis failed for match ${match.match_id}. Cannot generate prediction without AI analysis.`);
+  }
+
+  // Use AI predicted score (weighted 70% AI, 30% statistical)
+  const finalPredictedScore = {
+    home: Math.round((aiPrediction.predictedScore.home * 0.7) + (mostLikelyScore.home * 0.3)),
+    away: Math.round((aiPrediction.predictedScore.away * 0.7) + (mostLikelyScore.away * 0.3)),
+  };
+
+  // Blend winner probabilities (60% AI, 40% statistical)
+  let finalHomeWinProb = (aiPrediction.winnerProbabilities.home * 0.6) + (homeWinProb * 0.4);
+  let finalDrawProb = (aiPrediction.winnerProbabilities.draw * 0.6) + (drawProb * 0.4);
+  let finalAwayWinProb = (aiPrediction.winnerProbabilities.away * 0.6) + (awayWinProb * 0.4);
+
+  // Normalize to ensure they sum to 100
+  const finalTotal = finalHomeWinProb + finalDrawProb + finalAwayWinProb;
+  if (finalTotal > 0) {
+    finalHomeWinProb = (finalHomeWinProb / finalTotal) * 100;
+    finalDrawProb = (finalDrawProb / finalTotal) * 100;
+    finalAwayWinProb = (finalAwayWinProb / finalTotal) * 100;
+  }
+
+  // Use AI BTTS and Over/Under if available, otherwise use statistical
+  let finalBttsYes = bttsYesProb;
+  let finalBttsNo = bttsNoProb;
+  let finalOver25 = over25Prob;
+  let finalUnder25 = under25Prob;
+
+  if (aiPrediction.bothTeamsToScore) {
+    finalBttsYes = (aiPrediction.bothTeamsToScore.yes * 0.6) + (bttsYesProb * 0.4);
+    finalBttsNo = 100 - finalBttsYes;
+  }
+  if (aiPrediction.overUnder) {
+    finalOver25 = (aiPrediction.overUnder.over25 * 0.6) + (over25Prob * 0.4);
+    finalUnder25 = 100 - finalOver25;
+  }
+
+  // Enhance confidence with AI analysis
+  const finalConfidence = Math.min(100, (confidence * 0.5) + (aiPrediction.confidence * 0.5));
+
+  console.log(`🤖 AI-enhanced prediction for match ${match.match_id}:`, {
+    score: `${finalPredictedScore.home}-${finalPredictedScore.away}`,
+    aiScore: `${aiPrediction.predictedScore.home}-${aiPrediction.predictedScore.away}`,
+    statScore: `${mostLikelyScore.home}-${mostLikelyScore.away}`,
+    confidence: Math.round(finalConfidence),
+  });
+
   return {
     match: matchWithOdds,
     winner: {
-      home: Math.round(homeWinProb * 10) / 10,
-      draw: Math.round(drawProb * 10) / 10,
-      away: Math.round(awayWinProb * 10) / 10,
+      home: Math.round(finalHomeWinProb * 10) / 10,
+      draw: Math.round(finalDrawProb * 10) / 10,
+      away: Math.round(finalAwayWinProb * 10) / 10,
     },
-    predictedScore: {
-      home: mostLikelyScore.home,
-      away: mostLikelyScore.away,
-    },
+    predictedScore: finalPredictedScore,
     bothTeamsToScore: {
-      yes: Math.round(bttsYesProb * 10) / 10,
-      no: Math.round(bttsNoProb * 10) / 10,
+      yes: Math.round(finalBttsYes * 10) / 10,
+      no: Math.round(finalBttsNo * 10) / 10,
     },
     overUnder: {
-      over25: Math.round(over25Prob * 10) / 10,
-      under25: Math.round(under25Prob * 10) / 10,
+      over25: Math.round(finalOver25 * 10) / 10,
+      under25: Math.round(finalUnder25 * 10) / 10,
     },
-    confidence: Math.round(confidence * 10) / 10,
+    confidence: Math.round(finalConfidence * 10) / 10,
+    aiReasoning: aiPrediction.reasoning || undefined,
     h2hSummary: h2hAnalysis.totalMatches > 0 ? {
       homeWins: h2hAnalysis.homeWins,
       draws: h2hAnalysis.draws,
