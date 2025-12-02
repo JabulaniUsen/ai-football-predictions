@@ -48,6 +48,11 @@ export interface DatabasePrediction {
   h2h_away_wins?: number;
   h2h_avg_home_goals?: number;
   h2h_avg_away_goals?: number;
+  actual_score_home?: number;
+  actual_score_away?: number;
+  result_status?: 'win' | 'loss' | 'draw';
+  is_marked?: boolean;
+  ai_reasoning?: string;
   created_at?: string;
   updated_at?: string;
 }

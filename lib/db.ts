@@ -91,6 +91,7 @@ export async function savePrediction(
       h2h_away_wins: prediction.h2hSummary?.awayWins,
       h2h_avg_home_goals: prediction.h2hSummary?.avgHomeGoals,
       h2h_avg_away_goals: prediction.h2hSummary?.avgAwayGoals,
+      ai_reasoning: prediction.aiReasoning,
     };
 
     const { error } = await supabase
@@ -226,6 +227,14 @@ export async function getHistoricalPredictions(
           avgHomeGoals: pred.h2h_avg_home_goals,
           avgAwayGoals: pred.h2h_avg_away_goals,
         } : undefined,
+        actualScore: pred.actual_score_home !== null && pred.actual_score_away !== null ? {
+          home: pred.actual_score_home,
+          away: pred.actual_score_away,
+        } : undefined,
+        resultStatus: pred.result_status || undefined,
+        updatedAt: pred.updated_at || undefined,
+        isMarked: pred.is_marked || false,
+        aiReasoning: pred.ai_reasoning || undefined,
       };
     });
 
@@ -350,6 +359,128 @@ export async function deleteAllPredictions(
     return true;
   } catch (error) {
     console.error('Error deleting all predictions:', error);
+    return false;
+  }
+}
+
+/**
+ * Determine if prediction was correct based on actual result
+ */
+function determineResultStatus(
+  predictedWinner: { home: number; draw: number; away: number },
+  predictedScore: { home: number; away: number },
+  actualScore: { home: number; away: number }
+): 'win' | 'loss' | 'draw' {
+  // Determine actual winner
+  let actualWinner: 'home' | 'draw' | 'away';
+  if (actualScore.home > actualScore.away) {
+    actualWinner = 'home';
+  } else if (actualScore.away > actualScore.home) {
+    actualWinner = 'away';
+  } else {
+    actualWinner = 'draw';
+  }
+
+  // Determine predicted winner (highest probability)
+  let predictedWinnerType: 'home' | 'draw' | 'away';
+  if (predictedWinner.home >= predictedWinner.draw && predictedWinner.home >= predictedWinner.away) {
+    predictedWinnerType = 'home';
+  } else if (predictedWinner.away >= predictedWinner.draw && predictedWinner.away >= predictedWinner.home) {
+    predictedWinnerType = 'away';
+  } else {
+    predictedWinnerType = 'draw';
+  }
+
+  // Check if predicted winner matches actual winner
+  if (actualWinner === predictedWinnerType) {
+    // Also check if predicted score is close (within 1 goal for each team)
+    const homeDiff = Math.abs(predictedScore.home - actualScore.home);
+    const awayDiff = Math.abs(predictedScore.away - actualScore.away);
+    
+    if (homeDiff <= 1 && awayDiff <= 1) {
+      return 'win';
+    } else if (homeDiff <= 2 && awayDiff <= 2) {
+      return 'win'; // Still a win if close enough
+    } else {
+      return 'draw'; // Correct winner but score off
+    }
+  } else {
+    return 'loss';
+  }
+}
+
+/**
+ * Update prediction with actual scores and determine win/loss
+ */
+export async function updatePredictionWithResult(
+  predictionId: string,
+  actualScore: { home: number; away: number },
+  predictedWinner: { home: number; draw: number; away: number },
+  predictedScore: { home: number; away: number }
+): Promise<boolean> {
+  try {
+    // Determine result status
+    const resultStatus = determineResultStatus(predictedWinner, predictedScore, actualScore);
+
+    // Update the prediction
+    const { error } = await supabase
+      .from('predictions')
+      .update({
+        actual_score_home: actualScore.home,
+        actual_score_away: actualScore.away,
+        result_status: resultStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', predictionId);
+
+    if (error) throw error;
+
+    // Also update the match with actual scores and status
+    const { data: prediction } = await supabase
+      .from('predictions')
+      .select('match_id, api_match_id')
+      .eq('id', predictionId)
+      .single();
+
+    if (prediction && prediction.match_id) {
+      await supabase
+        .from('matches')
+        .update({
+          match_hometeam_score: String(actualScore.home),
+          match_awayteam_score: String(actualScore.away),
+          match_status: 'Finished',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', prediction.match_id);
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error updating prediction with result:', error);
+    return false;
+  }
+}
+
+/**
+ * Mark or unmark a prediction
+ */
+export async function markPrediction(
+  predictionId: string,
+  isMarked: boolean
+): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('predictions')
+      .update({
+        is_marked: isMarked,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', predictionId);
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error marking prediction:', error);
     return false;
   }
 }

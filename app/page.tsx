@@ -158,23 +158,23 @@ export default function Home() {
     try {
       // Track processing to avoid duplicates
       const processingSet = new Set<string>();
-      
-      // Process predictions asynchronously
-      for (let i = 0; i < fixturesToProcess.length; i++) {
-        const fixture = fixturesToProcess[i];
         
+        // Process predictions asynchronously
+          for (let i = 0; i < fixturesToProcess.length; i++) {
+            const fixture = fixturesToProcess[i];
+            
         // Skip if already processing or has prediction
         if (processingSet.has(fixture.match_id)) {
-          setProgress((prev) => ({ current: prev.current + 1, total: prev.total }));
-          continue;
-        }
-        
+              setProgress((prev) => ({ current: prev.current + 1, total: prev.total }));
+              continue;
+            }
+
         processingSet.add(fixture.match_id);
         
         // Generate prediction asynchronously
         (async () => {
           try {
-            const prediction = await generatePrediction(fixture);
+              const prediction = await generatePrediction(fixture);
             
             // Save to database
             try {
@@ -190,13 +190,13 @@ export default function Home() {
                 return prev; // Already exists, don't add duplicate
               }
               const updated = new Map(prev);
-              updated.set(fixture.match_id, prediction);
-              return updated;
-            });
-            setProgress((prev) => ({ current: prev.current + 1, total: prev.total }));
-          } catch (err) {
-            console.error(`Error generating prediction for match ${fixture.match_id}:`, err);
-            setProgress((prev) => ({ current: prev.current + 1, total: prev.total }));
+                updated.set(fixture.match_id, prediction);
+                return updated;
+              });
+              setProgress((prev) => ({ current: prev.current + 1, total: prev.total }));
+            } catch (err) {
+              console.error(`Error generating prediction for match ${fixture.match_id}:`, err);
+              setProgress((prev) => ({ current: prev.current + 1, total: prev.total }));
           } finally {
             processingSet.delete(fixture.match_id);
           }

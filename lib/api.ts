@@ -271,3 +271,61 @@ export async function getMatchOdds(matchId: string): Promise<{ odd_1?: string; o
   return null;
 }
 
+/**
+ * Fetch match result by match_id
+ * This is used to get actual scores for finished matches
+ */
+export async function getMatchResult(matchId: string): Promise<Match | null> {
+  try {
+    // Try to fetch the match by ID
+    // We'll search in a wide date range to find the match
+    const today = new Date();
+    const pastDate = new Date(today);
+    pastDate.setDate(pastDate.getDate() - 365); // Look back 1 year
+    const futureDate = new Date(today);
+    futureDate.setDate(futureDate.getDate() + 30); // Look ahead 30 days
+    
+    const dateFrom = pastDate.toISOString().split('T')[0];
+    const dateTo = futureDate.toISOString().split('T')[0];
+    
+    const data = await fetchAPI<any[]>(
+      `action=get_events&from=${dateFrom}&to=${dateTo}&match_id=${matchId}`
+    );
+    
+    if (Array.isArray(data) && data.length > 0) {
+      const match = data.find(m => m.match_id === matchId) || data[0];
+      
+      // Map to Match type
+      return {
+        match_id: match.match_id || '',
+        country_id: match.country_id || '',
+        country_name: match.country_name || '',
+        league_id: match.league_id || '',
+        league_name: match.league_name || '',
+        match_date: match.match_date || '',
+        match_time: match.match_time || '',
+        match_hometeam_id: match.match_hometeam_id || '',
+        match_hometeam_name: match.match_hometeam_name || '',
+        match_hometeam_score: match.match_hometeam_score,
+        match_awayteam_id: match.match_awayteam_id || '',
+        match_awayteam_name: match.match_awayteam_name || '',
+        match_awayteam_score: match.match_awayteam_score,
+        match_status: match.match_status || '',
+        match_round: match.match_round,
+        match_stadium: match.match_stadium,
+        match_referee: match.match_referee,
+        team_home_badge: match.team_home_badge,
+        team_away_badge: match.team_away_badge,
+        match_odd_1: match.match_odd_1 || match.odd_1,
+        match_odd_x: match.match_odd_x || match.odd_x,
+        match_odd_2: match.match_odd_2 || match.odd_2,
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error fetching match result:', error);
+    return null;
+  }
+}
+

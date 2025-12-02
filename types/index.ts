@@ -105,6 +105,14 @@ export interface MatchPrediction {
     avgHomeGoals: number;
     avgAwayGoals: number;
   };
+  // Actual result fields (for historical predictions)
+  actualScore?: {
+    home: number;
+    away: number;
+  };
+  resultStatus?: 'win' | 'loss' | 'draw'; // Whether the prediction was correct
+  updatedAt?: string; // When the actual score was last updated
+  isMarked?: boolean; // Whether the prediction has been marked/reviewed
 }
 
 export interface APIResponse<T> {

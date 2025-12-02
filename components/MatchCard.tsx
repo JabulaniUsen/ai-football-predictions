@@ -19,7 +19,9 @@ interface MatchCardProps {
 }
 
 export default function MatchCard({ prediction, viewMode = 'grid' }: MatchCardProps) {
-  const { match, winner, predictedScore, bothTeamsToScore, overUnder, confidence, aiReasoning, h2hSummary } = prediction;
+  const { match, winner, predictedScore, bothTeamsToScore, overUnder, confidence, aiReasoning, h2hSummary, actualScore, resultStatus } = prediction;
+  
+  const matchDate = new Date(`${match.match_date} ${match.match_time}`);
 
   const getConfidenceColor = (conf: number) => {
     if (conf >= 80) return 'text-emerald-400';
@@ -50,7 +52,6 @@ export default function MatchCard({ prediction, viewMode = 'grid' }: MatchCardPr
     return 'bg-slate-900/60 border-slate-800/50 backdrop-blur-sm';
   };
 
-  const matchDate = new Date(`${match.match_date} ${match.match_time}`);
   const isListView = viewMode === 'list';
 
   return (
@@ -58,10 +59,24 @@ export default function MatchCard({ prediction, viewMode = 'grid' }: MatchCardPr
       isListView 
         ? 'rounded-xl p-5' 
         : 'rounded-xl p-5 sm:p-6'
-    } hover:border-slate-700/50 transition-all duration-300`}>
+    } hover:border-slate-700/50 transition-all duration-300 relative`}>
+      {/* Result Status Badge */}
+      {resultStatus && (
+        <div className="absolute top-4 right-4 z-20">
+          <div className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
+            resultStatus === 'win' 
+              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+              : resultStatus === 'loss'
+              ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+              : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+          }`}>
+            {resultStatus === 'win' ? '✓ Win' : resultStatus === 'loss' ? '✗ Loss' : '≈ Draw'}
+          </div>
+        </div>
+      )}
       {isListView ? (
         // List View - Premium Horizontal Layout
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 pr-20">
           {/* League & Date */}
           <div className="min-w-0 flex-shrink-0 sm:w-44">
             <div className="text-xs text-slate-400 uppercase mb-1 truncate font-semibold tracking-wider">
@@ -94,6 +109,11 @@ export default function MatchCard({ prediction, viewMode = 'grid' }: MatchCardPr
             <div className="text-xl font-bold text-white bg-gradient-to-br from-blue-500/20 to-indigo-500/20 rounded-lg py-2 px-3 border border-blue-500/30">
               {predictedScore.home} - {predictedScore.away}
             </div>
+            {actualScore && (
+              <div className="text-sm font-semibold text-emerald-400 mt-1">
+                Actual: {actualScore.home} - {actualScore.away}
+              </div>
+            )}
           </div>
 
           {/* 1X2 */}
@@ -231,7 +251,7 @@ export default function MatchCard({ prediction, viewMode = 'grid' }: MatchCardPr
         // Grid View - Premium Vertical Layout
         <>
           {/* Header */}
-          <div className="mb-5 pb-4 border-b border-slate-800/50">
+          <div className="mb-5 pb-4 border-b border-slate-800/50 pr-20">
             <div className="flex items-center justify-between mb-2">
               <div className="text-xs text-slate-400 uppercase font-semibold tracking-wider">
                 {match.league_name}
@@ -271,6 +291,14 @@ export default function MatchCard({ prediction, viewMode = 'grid' }: MatchCardPr
               <div className="text-3xl font-bold text-white tracking-tight">
             {predictedScore.home} - {predictedScore.away}
           </div>
+              {actualScore && (
+                <div className="mt-3 pt-3 border-t border-blue-500/20">
+                  <div className="text-xs text-slate-400 mb-1 font-semibold tracking-wide uppercase">Actual Score</div>
+                  <div className="text-2xl font-bold text-emerald-400 tracking-tight">
+                    {actualScore.home} - {actualScore.away}
+                  </div>
+                </div>
+              )}
         </div>
       </div>
 
@@ -288,13 +316,13 @@ export default function MatchCard({ prediction, viewMode = 'grid' }: MatchCardPr
                     <div className="text-[10px] text-slate-500 mb-1 font-medium">Odds</div>
                     <div className="text-xs text-blue-400 font-semibold">
                       {match.match_odd_1}
-                    </div>
-                  </div>
+            </div>
+          </div>
                 )}
               </div>
               <div className={`text-center py-3 rounded-xl border ${getWinnerBg(winner.draw)}`}>
                 <div className="text-xs text-slate-400 mb-1.5 font-medium">Draw</div>
-                <div className={`text-lg font-bold ${getWinnerColor(winner.draw)}`}>
+            <div className={`text-lg font-bold ${getWinnerColor(winner.draw)}`}>
                   {winner.draw.toFixed(0)}%
                 </div>
                 {match.match_odd_x && (
@@ -336,8 +364,8 @@ export default function MatchCard({ prediction, viewMode = 'grid' }: MatchCardPr
               <div className="text-base font-bold text-slate-100">
                 {overUnder.over25.toFixed(0)}%
           </div>
-            </div>
-          </div>
+        </div>
+      </div>
 
           {/* H2H Summary */}
           {h2hSummary && (
@@ -351,7 +379,7 @@ export default function MatchCard({ prediction, viewMode = 'grid' }: MatchCardPr
                 <div className="py-3 rounded-xl bg-slate-900/60 border border-slate-800/50 backdrop-blur-sm">
                   <div className="text-xs text-slate-500 mb-1 font-medium">Draw</div>
                   <div className="text-base font-bold text-slate-100">{h2hSummary.draws}</div>
-                </div>
+          </div>
                 <div className="py-3 rounded-xl bg-slate-900/60 border border-slate-800/50 backdrop-blur-sm">
                   <div className="text-xs text-slate-500 mb-1 font-medium">Away</div>
                   <div className="text-base font-bold text-slate-100">{h2hSummary.awayWins}</div>
@@ -415,8 +443,8 @@ export default function MatchCard({ prediction, viewMode = 'grid' }: MatchCardPr
                           </div>
                         </div>
                       )}
-                    </div>
-                  </div>
+        </div>
+      </div>
                   {(match.match_odd_1 || match.match_odd_x || match.match_odd_2) && (
             <div>
                       <h3 className="text-sm font-semibold text-slate-300 mb-3">Odds</h3>
