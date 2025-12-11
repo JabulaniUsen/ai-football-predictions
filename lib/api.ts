@@ -9,7 +9,7 @@ if (!API_KEY) {
 
 async function fetchAPI<T>(endpoint: string): Promise<T> {
   const url = `${API_BASE_URL}?${endpoint}&APIkey=${API_KEY}`;
-  
+
   try {
     const response = await fetch(url, {
       next: { revalidate: 300 }, // Cache for 5 minutes
@@ -20,7 +20,7 @@ async function fetchAPI<T>(endpoint: string): Promise<T> {
     }
 
     const data = await response.json();
-    
+
     // Check for API errors
     if (data.error && data.error !== 0) {
       throw new Error(data.message || 'API returned an error');
@@ -51,12 +51,12 @@ export async function getFixtures(
       endpoint += `&country_id=${countryId}`;
     }
     const data = await fetchAPI<any[]>(endpoint);
-    
+
     // Log first match to see structure (only in development)
     if (process.env.NODE_ENV === 'development' && Array.isArray(data) && data.length > 0) {
       console.log('Sample API response:', JSON.stringify(data[0], null, 2));
     }
-    
+
     // Map the API response to Match type, handling different possible odds field names
     const matches: Match[] = (Array.isArray(data) ? data : []).map((item: any) => ({
       match_id: item.match_id || '',
@@ -83,7 +83,7 @@ export async function getFixtures(
       match_odd_x: item.match_odd_x || item.odd_x || item.odds?.draw || item.odds_1x2?.odd_x || item.bookmakers?.[0]?.bets?.[0]?.values?.find((v: any) => v.value === 'X')?.odd,
       match_odd_2: item.match_odd_2 || item.odd_2 || item.odds?.away || item.odds_1x2?.odd_2 || item.bookmakers?.[0]?.bets?.[0]?.values?.find((v: any) => v.value === '2')?.odd,
     }));
-    
+
     return matches;
   } catch (error) {
     console.error('Error fetching fixtures:', error);
@@ -96,7 +96,7 @@ export async function getFixtures(
  */
 export function getUniqueLeagues(fixtures: Match[]): Array<{ id: string; name: string; country: string }> {
   const leagueMap = new Map<string, { id: string; name: string; country: string }>();
-  
+
   fixtures.forEach((fixture) => {
     const key = `${fixture.league_id}-${fixture.country_id}`;
     if (!leagueMap.has(key)) {
@@ -107,7 +107,7 @@ export function getUniqueLeagues(fixtures: Match[]): Array<{ id: string; name: s
       });
     }
   });
-  
+
   return Array.from(leagueMap.values()).sort((a, b) => {
     if (a.country !== b.country) {
       return a.country.localeCompare(b.country);
@@ -121,7 +121,7 @@ export function getUniqueLeagues(fixtures: Match[]): Array<{ id: string; name: s
  */
 export function getUniqueCountries(fixtures: Match[]): Array<{ id: string; name: string }> {
   const countryMap = new Map<string, { id: string; name: string }>();
-  
+
   fixtures.forEach((fixture) => {
     if (!countryMap.has(fixture.country_id)) {
       countryMap.set(fixture.country_id, {
@@ -130,8 +130,30 @@ export function getUniqueCountries(fixtures: Match[]): Array<{ id: string; name:
       });
     }
   });
-  
+
   return Array.from(countryMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Fetch all available leagues
+ */
+export async function getLeagues(): Promise<Array<{ league_id: string; league_name: string; country_id: string; country_name: string }>> {
+  try {
+    const data = await fetchAPI<any[]>('action=get_leagues');
+
+    if (Array.isArray(data)) {
+      return data.map(league => ({
+        league_id: league.league_id,
+        league_name: league.league_name,
+        country_id: league.country_id,
+        country_name: league.country_name
+      }));
+    }
+    return [];
+  } catch (error) {
+    console.error('Error fetching leagues:', error);
+    return [];
+  }
 }
 
 /**
@@ -163,7 +185,7 @@ export async function getTeamStats(
     const data = await fetchAPI<TeamStats[]>(
       `action=get_standings&league_id=${leagueId}&team_id=${teamId}`
     );
-    
+
     if (Array.isArray(data) && data.length > 0) {
       return data[0];
     }
@@ -215,7 +237,7 @@ export async function getMatchOdds(matchId: string): Promise<{ odd_1?: string; o
     const data = await fetchAPI<any>(
       `action=get_odds&match_id=${matchId}`
     );
-    
+
     // Handle different possible response structures
     if (Array.isArray(data) && data.length > 0) {
       const odds = data[0];
@@ -228,7 +250,7 @@ export async function getMatchOdds(matchId: string): Promise<{ odd_1?: string; o
         return result;
       }
     }
-    
+
     // If it's an object directly
     if (data && typeof data === 'object' && !Array.isArray(data)) {
       const result = {
@@ -244,7 +266,7 @@ export async function getMatchOdds(matchId: string): Promise<{ odd_1?: string; o
     // Try alternative endpoint
     console.warn('get_odds endpoint failed, trying alternatives:', error);
   }
-  
+
   // Try get_events with match_id to get odds
   try {
     const today = new Date().toISOString().split('T')[0];
@@ -252,7 +274,7 @@ export async function getMatchOdds(matchId: string): Promise<{ odd_1?: string; o
     const data = await fetchAPI<any[]>(
       `action=get_events&from=${today}&to=${tomorrow}&match_id=${matchId}`
     );
-    
+
     if (Array.isArray(data) && data.length > 0) {
       const match = data.find(m => m.match_id === matchId) || data[0];
       const result = {
@@ -267,8 +289,132 @@ export async function getMatchOdds(matchId: string): Promise<{ odd_1?: string; o
   } catch (error) {
     console.warn('Alternative odds fetch failed:', error);
   }
-  
+
   return null;
+}
+
+/**
+ * Fetch teams from a league standings
+ */
+export async function getTeamsFromLeague(leagueId: string): Promise<Array<{ team_id: string; team_name: string; team_badge?: string }>> {
+  try {
+    const standings = await getStandings(leagueId);
+    return standings.map(team => ({
+      team_id: team.team_id,
+      team_name: team.team_name,
+    }));
+  } catch (error) {
+    console.error('Error fetching teams from league:', error);
+    return [];
+  }
+}
+
+/**
+ * Fetch teams from fixtures (extract unique teams)
+ */
+export async function getTeamsFromFixtures(dateFrom?: string, dateTo?: string, leagueId?: string): Promise<Array<{ team_id: string; team_name: string; team_badge?: string }>> {
+  try {
+    const from = dateFrom || new Date().toISOString().split('T')[0];
+    const to = dateTo || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
+    const fixtures = await getFixtures(from, to, leagueId);
+    const teamMap = new Map<string, { team_id: string; team_name: string; team_badge?: string }>();
+    
+    fixtures.forEach(fixture => {
+      // Add home team
+      if (!teamMap.has(fixture.match_hometeam_id)) {
+        teamMap.set(fixture.match_hometeam_id, {
+          team_id: fixture.match_hometeam_id,
+          team_name: fixture.match_hometeam_name,
+          team_badge: fixture.team_home_badge,
+        });
+      }
+      // Add away team
+      if (!teamMap.has(fixture.match_awayteam_id)) {
+        teamMap.set(fixture.match_awayteam_id, {
+          team_id: fixture.match_awayteam_id,
+          team_name: fixture.match_awayteam_name,
+          team_badge: fixture.team_away_badge,
+        });
+      }
+    });
+    
+    return Array.from(teamMap.values()).sort((a, b) => a.team_name.localeCompare(b.team_name));
+  } catch (error) {
+    console.error('Error fetching teams from fixtures:', error);
+    return [];
+  }
+}
+
+/**
+ * Find matches between two teams
+ * Searches for matches where the two teams played against each other
+ */
+export async function findMatchBetweenTeams(
+  team1Id: string,
+  team2Id: string,
+  dateFrom?: string,
+  dateTo?: string
+): Promise<Match | null> {
+  try {
+    const today = new Date();
+    const pastDate = dateFrom ? new Date(dateFrom) : new Date(today);
+    pastDate.setDate(pastDate.getDate() - 365); // Look back 1 year
+    const futureDate = dateTo ? new Date(dateTo) : new Date(today);
+    futureDate.setDate(futureDate.getDate() + 30); // Look ahead 30 days
+
+    const from = pastDate.toISOString().split('T')[0];
+    const to = futureDate.toISOString().split('T')[0];
+
+    const data = await fetchAPI<any[]>(
+      `action=get_events&from=${from}&to=${to}`
+    );
+
+    if (Array.isArray(data) && data.length > 0) {
+      // Find matches where these two teams played each other
+      const match = data.find((m: any) => {
+        const homeId = m.match_hometeam_id || '';
+        const awayId = m.match_awayteam_id || '';
+        return (
+          (homeId === team1Id && awayId === team2Id) ||
+          (homeId === team2Id && awayId === team1Id)
+        );
+      });
+
+      if (match) {
+        // Map to Match type
+        return {
+          match_id: match.match_id || '',
+          country_id: match.country_id || '',
+          country_name: match.country_name || '',
+          league_id: match.league_id || '',
+          league_name: match.league_name || '',
+          match_date: match.match_date || '',
+          match_time: match.match_time || '',
+          match_hometeam_id: match.match_hometeam_id || '',
+          match_hometeam_name: match.match_hometeam_name || '',
+          match_hometeam_score: match.match_hometeam_score,
+          match_awayteam_id: match.match_awayteam_id || '',
+          match_awayteam_name: match.match_awayteam_name || '',
+          match_awayteam_score: match.match_awayteam_score,
+          match_status: match.match_status || '',
+          match_round: match.match_round,
+          match_stadium: match.match_stadium,
+          match_referee: match.match_referee,
+          team_home_badge: match.team_home_badge,
+          team_away_badge: match.team_away_badge,
+          match_odd_1: match.match_odd_1 || match.odd_1,
+          match_odd_x: match.match_odd_x || match.odd_x,
+          match_odd_2: match.match_odd_2 || match.odd_2,
+        };
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error finding match between teams:', error);
+    return null;
+  }
 }
 
 /**
@@ -284,17 +430,17 @@ export async function getMatchResult(matchId: string): Promise<Match | null> {
     pastDate.setDate(pastDate.getDate() - 365); // Look back 1 year
     const futureDate = new Date(today);
     futureDate.setDate(futureDate.getDate() + 30); // Look ahead 30 days
-    
+
     const dateFrom = pastDate.toISOString().split('T')[0];
     const dateTo = futureDate.toISOString().split('T')[0];
-    
+
     const data = await fetchAPI<any[]>(
       `action=get_events&from=${dateFrom}&to=${dateTo}&match_id=${matchId}`
     );
-    
+
     if (Array.isArray(data) && data.length > 0) {
       const match = data.find(m => m.match_id === matchId) || data[0];
-      
+
       // Map to Match type
       return {
         match_id: match.match_id || '',
@@ -321,7 +467,7 @@ export async function getMatchResult(matchId: string): Promise<Match | null> {
         match_odd_2: match.match_odd_2 || match.odd_2,
       };
     }
-    
+
     return null;
   } catch (error) {
     console.error('Error fetching match result:', error);

@@ -1,6 +1,7 @@
 'use client';
 import { format, addDays, subDays } from 'date-fns';
-import { FaFutbol, FaRobot, FaHistory, FaCalendarAlt } from 'react-icons/fa';
+import { FaFutbol, FaRobot, FaHistory, FaCalendarAlt, FaSearch } from 'react-icons/fa';
+import { usePathname } from 'next/navigation';
 import DatePicker from './DatePicker';
 import { Button } from './ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
@@ -29,6 +30,8 @@ export default function Navbar({
   maxDate,
   showDatePicker = true, // Default to true for backward compatibility
 }: NavbarProps) {
+  const pathname = usePathname();
+  
   const handleQuickDate = (days: number) => {
     // Only allow backdating in historical mode
     if (days < 0 && viewMode === 'live') {
@@ -48,9 +51,9 @@ export default function Navbar({
   const isToday = dateFrom === today;
   const isTomorrow = dateFrom === format(addDays(new Date(), 1), 'yyyy-MM-dd');
   const isYesterday = dateFrom === format(subDays(new Date(), 1), 'yyyy-MM-dd');
-  
+
   // Determine min date based on view mode
-  const minDate = viewMode === 'historical' 
+  const minDate = viewMode === 'historical'
     ? format(subDays(new Date(), 365), 'yyyy-MM-dd')
     : today;
 
@@ -101,7 +104,7 @@ export default function Navbar({
                       />
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                      {viewMode === 'historical' 
+                      {viewMode === 'historical'
                         ? 'Select past dates to view historical predictions'
                         : 'Select future dates to view upcoming matches'}
                     </p>
@@ -111,32 +114,29 @@ export default function Navbar({
                 {/* Quick Date Buttons */}
                 <button
                   onClick={() => handleQuickDate(0)}
-                  className={`px-4 py-2 rounded-none text-sm font-medium transition-colors whitespace-nowrap ${
-                    isToday
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-transparent text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
+                  className={`px-4 py-2 rounded-none text-sm font-medium transition-colors whitespace-nowrap ${isToday
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-transparent text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
                 >
                   Today
                 </button>
                 <button
                   onClick={() => handleQuickDate(1)}
-                  className={`px-4 py-2 rounded-none text-sm font-medium transition-colors whitespace-nowrap ${
-                    isTomorrow
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-transparent text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
+                  className={`px-4 py-2 rounded-none text-sm font-medium transition-colors whitespace-nowrap ${isTomorrow
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-transparent text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
                 >
                   Tomorrow
                 </button>
                 {viewMode === 'historical' && (
                   <button
                     onClick={() => handleQuickDate(-1)}
-                    className={`px-4 py-2 rounded-r-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                      isYesterday
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-transparent text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                    }`}
+                    className={`px-4 py-2 rounded-r-lg text-sm font-medium transition-colors whitespace-nowrap ${isYesterday
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-transparent text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
                   >
                     Yesterday
                   </button>
@@ -149,7 +149,7 @@ export default function Navbar({
           <div className="flex items-center gap-2">
             <Link href="/">
               <Button
-                variant={viewMode === 'live' ? 'default' : 'outline'}
+                variant={viewMode === 'live' && pathname !== '/search' ? 'default' : 'outline'}
                 size="sm"
                 className="flex items-center gap-2"
               >
@@ -165,6 +165,16 @@ export default function Navbar({
               >
                 <FaHistory className="text-xs" />
                 <span className="hidden sm:inline">History</span>
+              </Button>
+            </Link>
+            <Link href="/search">
+              <Button
+                variant={pathname === '/search' ? 'default' : 'outline'}
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <FaSearch className="text-xs" />
+                <span className="hidden sm:inline">Search</span>
               </Button>
             </Link>
           </div>
