@@ -137,6 +137,31 @@ export async function getHistoricalPredictions(
   countryId?: string
 ): Promise<(MatchPrediction & { predictionId: string })[]> {
   try {
+    // First, get matches that match the criteria
+    let matchQuery = supabase
+      .from('matches')
+      .select('id')
+      .gte('match_date', dateFrom)
+      .lte('match_date', dateTo);
+
+    if (leagueId) {
+      matchQuery = matchQuery.eq('league_id', leagueId);
+    }
+
+    if (countryId) {
+      matchQuery = matchQuery.eq('country_id', countryId);
+    }
+
+    const { data: matches, error: matchError } = await matchQuery;
+
+    if (matchError) throw matchError;
+
+    if (!matches || matches.length === 0) {
+      return [];
+    }
+
+    // Get predictions for these matches
+    const matchIds = matches.map((m: any) => m.id);
     let query = supabase
       .from('predictions')
       .select(`
@@ -162,17 +187,8 @@ export async function getHistoricalPredictions(
           team_away_badge
         )
       `)
-      .gte('matches.match_date', dateFrom)
-      .lte('matches.match_date', dateTo)
+      .in('match_id', matchIds)
       .order('created_at', { ascending: false });
-
-    if (leagueId) {
-      query = query.eq('matches.league_id', leagueId);
-    }
-
-    if (countryId) {
-      query = query.eq('matches.country_id', countryId);
-    }
 
     const { data, error } = await query;
 
